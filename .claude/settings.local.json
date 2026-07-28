@@ -1,0 +1,36 @@
+{
+  "permissions": {
+    "allow": [
+      "Skill(claude-api)",
+      "Skill(claude-api:*)",
+      "Bash(npm install *)",
+      "PowerShell(Get-Command node -ErrorAction SilentlyContinue)",
+      "PowerShell(Get-Command npm -ErrorAction SilentlyContinue)",
+      "PowerShell($paths = @\\(\"C:\\\\Program Files\\\\nodejs\\\\node.exe\",\"$env:LOCALAPPDATA\\\\Programs\\\\nodejs\\\\node.exe\",\"$env:ProgramFiles\\\\nodejs\\\\node.exe\"\\); foreach \\($p in $paths\\) { if \\(Test-Path $p\\) { Write-Output \"FOUND: $p\" } }; Write-Output \"---\"; Write-Output $env:Path)",
+      "PowerShell(fnm env --use-on-cd | Out-String | Invoke-Expression; fnm use default 2>&1; node -v; npm -v)",
+      "PowerShell(fnm env --use-on-cd | Out-String | Invoke-Expression; Set-Location \"C:\\\\Users\\\\Oscar Carrasquel\\\\OneDrive - AVATTAR\\\\Repo_OscarC\\\\PROYECTOS LLM\\\\WS_DEPICEJAS\"; npm install 2>&1 | Select-Object -Last 60)",
+      "PowerShell(fnm env --use-on-cd | Out-String | Invoke-Expression; Set-Location \"C:\\\\Users\\\\Oscar Carrasquel\\\\OneDrive - AVATTAR\\\\Repo_OscarC\\\\PROYECTOS LLM\\\\WS_DEPICEJAS\"; npm run build 2>&1)",
+      "PowerShell(fnm env --use-on-cd | Out-String | Invoke-Expression; Set-Location \"C:\\\\Users\\\\Oscar Carrasquel\\\\OneDrive - AVATTAR\\\\Repo_OscarC\\\\PROYECTOS LLM\\\\WS_DEPICEJAS\"; Start-Process -FilePath \"node\" -ArgumentList \"dist/server.js\" -RedirectStandardOutput \"smoketest.out.log\" -RedirectStandardError \"smoketest.err.log\" -PassThru | ForEach-Object { $_.Id } | Out-File -FilePath \"smoketest.pid\")",
+      "PowerShell(Set-Location \"C:\\\\Users\\\\Oscar Carrasquel\\\\OneDrive - AVATTAR\\\\Repo_OscarC\\\\PROYECTOS LLM\\\\WS_DEPICEJAS\"; Start-Sleep -Seconds 2; try { $r = Invoke-WebRequest -Uri \"http://localhost:3000/health\" -UseBasicParsing -TimeoutSec 5; Write-Output \"STATUS: $\\($r.StatusCode\\)\"; Write-Output $r.Content } catch { Write-Output \"REQUEST FAILED: $_\" }; Write-Output \"--- stdout ---\"; Get-Content \"smoketest.out.log\" -ErrorAction SilentlyContinue; Write-Output \"--- stderr ---\"; Get-Content \"smoketest.err.log\" -ErrorAction SilentlyContinue)",
+      "Bash(extract-text \"/c/Users/Oscar Carrasquel/Downloads/Datos generalesDepijejas.docx\")",
+      "Bash(pandoc --version)",
+      "Bash(SKILL_DIR=\"C:\\\\Users\\\\Oscar Carrasquel\\\\AppData\\\\Roaming\\\\Claude\\\\local-agent-mode-sessions\\\\skills-plugin\\\\2d52a4a6-07a1-4497-98de-7c2b305a7de5\\\\d49eab6f-6ce8-46d4-a513-fe572b40f0fd\\\\skills\\\\docx\" *)",
+      "Bash(\"/c/Users/Oscar Carrasquel/AppData/Local/Programs/Python/Python312/python.exe\" --version)",
+      "Bash(mkdir -p \"/c/Users/Oscar Carrasquel/AppData/Local/Temp/claude/C--Users-Oscar-Carrasquel-OneDrive---AVATTAR-Repo-OscarC-PROYECTOS-LLM-WS-DEPICEJAS/cbbcb449-1a33-4011-aa41-f9a14fd8b8e4/scratchpad/unpacked\")",
+      "Bash('/c/Users/Oscar Carrasquel/AppData/Local/Programs/Python/Python312/python.exe' 'C:\\\\Users\\\\Oscar Carrasquel\\\\AppData\\\\Roaming\\\\Claude\\\\local-agent-mode-sessions\\\\skills-plugin\\\\2d52a4a6-07a1-4497-98de-7c2b305a7de5\\\\d49eab6f-6ce8-46d4-a513-fe572b40f0fd\\\\skills\\\\docx/scripts/office/unpack.py' '/c/Users/Oscar Carrasquel/Downloads/Datos generalesDepijejas.docx' '/c/Users/Oscar Carrasquel/AppData/Local/Temp/claude/C--Users-Oscar-Carrasquel-OneDrive---AVATTAR-Repo-OscarC-PROYECTOS-LLM-WS-DEPICEJAS/cbbcb449-1a33-4011-aa41-f9a14fd8b8e4/scratchpad/unpacked')",
+      "Bash(ngrok version *)",
+      "PowerShell(fnm env --use-on-cd | Out-String | Invoke-Expression; Set-Location \"C:\\\\Users\\\\Oscar Carrasquel\\\\OneDrive - AVATTAR\\\\Repo_OscarC\\\\PROYECTOS LLM\\\\WS_DEPICEJAS\"; npm install 2>&1 | Select-Object -Last 15; Write-Output \"--- build ---\"; npm run build 2>&1)",
+      "PowerShell(fnm env --use-on-cd | Out-String | Invoke-Expression; Set-Location \"C:\\\\Users\\\\Oscar Carrasquel\\\\OneDrive - AVATTAR\\\\Repo_OscarC\\\\PROYECTOS LLM\\\\WS_DEPICEJAS\"; \"hola`nsalir`n\" | npm run chat 2>&1)",
+      "PowerShell(fnm env --use-on-cd | Out-String | Invoke-Expression; Set-Location \"C:\\\\Users\\\\Oscar Carrasquel\\\\OneDrive - AVATTAR\\\\Repo_OscarC\\\\PROYECTOS LLM\\\\WS_DEPICEJAS\"; npx ts-node --transpile-only directtest.ts 2>&1)",
+      "Bash('/c/Users/Oscar Carrasquel/AppData/Local/Programs/Python/Python312/python.exe' -)",
+      "Bash(printf \"hola\\\\nprecios\\\\nagendar\\\\nBrazos\\\\njueves\\\\n15:00\\\\nCamila Test\\\\ncomo se paga\\\\ndomicilio\\\\nqueja\\\\nsalir\\\\n\")",
+      "Read(//tmp/**)",
+      "PowerShell(fnm env --use-on-cd | Out-String | Invoke-Expression; Set-Location \"C:\\\\Users\\\\Oscar Carrasquel\\\\OneDrive - AVATTAR\\\\Repo_OscarC\\\\PROYECTOS LLM\\\\WS_DEPICEJAS\"; Get-Content \"C:\\\\Users\\\\OSCARC~1\\\\AppData\\\\Local\\\\Temp\\\\mockinput.txt\" | node dist/cli-mock.js 2>&1)",
+      "Bash(rm -f \"/c/Users/OSCARC~1/AppData/Local/Temp/mockinput.txt\" /tmp/mockinput.txt)",
+      "Bash(gh --version)",
+      "Bash(gh auth *)",
+      "Bash(git --version)",
+      "Bash(where git *)"
+    ]
+  }
+}
