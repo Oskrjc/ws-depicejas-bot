@@ -30,7 +30,8 @@
       "Bash(gh --version)",
       "Bash(gh auth *)",
       "Bash(git --version)",
-      "Bash(where git *)"
+      "Bash(where git *)",
+      "Bash(which node *)"
     ]
   }
 }

@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Depicejas — Panel de reservas</title>
+<link rel="stylesheet" href="/admin/styles.css" />
+</head>
+<body>
+
+<header class="admin-header">
+  <h1>Reservas — Depicejas Beyond Beauty</h1>
+  <button id="refreshBtn" type="button" class="btn">Actualizar</button>
+</header>
+
+<main class="container">
+  <p id="status" class="status"></p>
+
+  <div class="table-wrap">
+    <table id="reservationsTable">
+      <thead>
+        <tr>
+          <th>Creada</th>
+          <th>Cliente</th>
+          <th>Correo</th>
+          <th>Teléfono</th>
+          <th>Servicio</th>
+          <th>Fecha pref.</th>
+          <th>Hora pref.</th>
+          <th>Notas</th>
+          <th>Contactada</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody id="reservationsBody">
+      </tbody>
+    </table>
+  </div>
+</main>
+
+<script src="/admin/script.js"></script>
+</body>
+</html>

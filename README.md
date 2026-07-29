@@ -179,6 +179,53 @@ Joselyn se pondrá en contacto.
 
 ---
 
+### 5.2 Reservas desde la landing page (`web/`)
+
+La landing page (sección "Reserva tu hora") tiene un formulario donde el
+cliente deja su nombre, correo, teléfono (opcional), servicio, fecha/hora
+preferida y notas. Al enviarlo:
+
+1. La reserva se guarda en una base de datos **SQLite** local (archivo en
+   `RESERVATIONS_DB_PATH`, por defecto `./data/reservations.db` — no se sube
+   al repo, ya está en `.gitignore`).
+2. Te llega un correo a `OWNER_NOTIFICATION_EMAIL` con todos los datos.
+3. El cliente recibe un correo automático confirmando que su **solicitud**
+   fue recibida (aclarando que aún debes confirmar tú el horario y el abono).
+
+Es una solicitud, no un agendamiento automático: no revisa disponibilidad
+real en el calendario (eso lo sigue haciendo el bot de WhatsApp). Tú
+confirmas manualmente con el cliente, igual que hoy.
+
+**Configurar el envío de correos (Gmail):**
+
+1. Activa la verificación en dos pasos en la cuenta de Gmail que va a
+   enviar los correos (ej. `Depicejas.cl@gmail.com`) — es requisito para
+   generar una "contraseña de aplicación". En
+   [myaccount.google.com/security](https://myaccount.google.com/security),
+   activa **Verificación en 2 pasos** si no la tienes.
+2. Ve a [myaccount.google.com/apppasswords](https://myaccount.google.com/apppasswords),
+   crea una nueva contraseña de aplicación (nombre libre, ej. "Depicejas web").
+3. Copia el código de 16 caracteres que te muestra — ese va en
+   `GMAIL_APP_PASSWORD` en tu `.env` (no es la contraseña normal de la cuenta).
+4. Completa en `.env`:
+   - `GMAIL_USER` — la cuenta de Gmail que envía (ej. `Depicejas.cl@gmail.com`)
+   - `GMAIL_APP_PASSWORD` — el código de 16 caracteres del paso 3
+   - `OWNER_NOTIFICATION_EMAIL` — a dónde llega la notificación de cada reserva
+     (por defecto, el mismo `GMAIL_USER`)
+
+Si estas variables no están configuradas, el formulario responde con un
+error explicando qué falta — el resto del sitio y el bot de WhatsApp
+funcionan igual sin esto.
+
+**Panel para ver las reservas:** entra a `http://localhost:3000/admin` (o
+`https://tu-proyecto.up.railway.app/admin` en producción). Te va a pedir
+usuario y contraseña — configúralos en `.env` con `ADMIN_USERNAME` y
+`ADMIN_PASSWORD` (si `ADMIN_PASSWORD` queda vacío, el panel responde con
+error 503, para que no quede accidentalmente abierto sin contraseña). Desde
+ahí puedes ver todas las reservas, marcarlas como "contactada" y eliminarlas.
+
+---
+
 ## 6. Desplegar en Railway
 
 1. Sube este proyecto a un repositorio de GitHub (recuerda que `.env` y
@@ -192,6 +239,13 @@ Joselyn se pondrá en contacto.
    de ahí en vez de un archivo — o usar un [Volume](https://docs.railway.com/reference/volumes)
    de Railway para montar el archivo. Dime si quieres que lo dejemos listo
    así antes de desplegar.
+4.1. **Importante para las reservas:** el archivo SQLite de reservas
+   (`RESERVATIONS_DB_PATH`) vive en el disco del contenedor — sin un
+   [Volume](https://docs.railway.com/reference/volumes) de Railway montado
+   en esa ruta (ej. `/data`), se pierde cada vez que Railway redespliega.
+   Crea un Volume y apunta `RESERVATIONS_DB_PATH` a una ruta dentro de él
+   (ej. `/data/reservations.db`) antes de depender de esta base de datos en
+   producción.
 5. Railway detecta el `package.json` y corre `npm run build` seguido de
    `npm start` automáticamente (usa el `Procfile`/`railway.json` si quieres
    forzarlo explícitamente).
@@ -228,5 +282,15 @@ src/
   claude.ts                # Lógica de Claude + herramientas (tools)
   conversationStore.ts       # Historial de conversación en memoria
   reminders.ts                 # Cron job de recordatorios
-  server.ts                      # Servidor Express (webhook)
+  reservationsDb.ts              # Base de datos SQLite de reservas web
+  mailer.ts                        # Envío de correos (Gmail) para reservas
+  server.ts                          # Servidor Express (webhook + API + sitio estático)
+web/
+  index.html            # Landing page (servida por el mismo Express en /)
+  styles.css
+  script.js
+admin/
+  index.html            # Panel de reservas (servido en /admin, con contraseña)
+  styles.css
+  script.js
 ```

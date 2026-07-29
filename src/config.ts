@@ -36,6 +36,16 @@ export const config = {
   reminderHoursBefore: Number(process.env.REMINDER_HOURS_BEFORE || 24),
   reminderCronSchedule: process.env.REMINDER_CRON_SCHEDULE || "*/15 * * * *",
 
+  // Reservas desde la landing page (formulario web → correo, ver src/mailer.ts)
+  gmailUser: process.env.GMAIL_USER || "",
+  gmailAppPassword: process.env.GMAIL_APP_PASSWORD || "",
+  ownerNotificationEmail: process.env.OWNER_NOTIFICATION_EMAIL || process.env.GMAIL_USER || "",
+  reservationsDbPath: process.env.RESERVATIONS_DB_PATH || "./data/reservations.db",
+
+  // Panel de administrador (/admin) — una sola contraseña compartida
+  adminUsername: process.env.ADMIN_USERNAME || "admin",
+  adminPassword: process.env.ADMIN_PASSWORD || "",
+
   port: Number(process.env.PORT || 3000),
 };
 

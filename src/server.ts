@@ -1,13 +1,46 @@
-import express from "express";
+import express, { NextFunction, Request, Response } from "express";
+import path from "path";
 import { config, assertServerConfig } from "./config";
 import { parseIncomingTextMessages, sendTextMessage, markAsRead } from "./whatsapp";
 import { handleIncomingMessage } from "./claude";
 import { startReminderJob } from "./reminders";
+import {
+  saveReservation,
+  listReservations,
+  setReservationContacted,
+  deleteReservation,
+} from "./reservationsDb";
+import { sendReservationEmails } from "./mailer";
 
 assertServerConfig();
 
 const app = express();
 app.use(express.json());
+app.use(express.static(path.join(__dirname, "../web")));
+
+// ── Autenticación básica para el panel de administrador (/admin) ──────────
+function requireAdminAuth(req: Request, res: Response, next: NextFunction): void {
+  if (!config.adminPassword) {
+    res.status(503).send("El panel de administrador no está configurado (falta ADMIN_PASSWORD en .env).");
+    return;
+  }
+
+  const authHeader = req.headers.authorization || "";
+  const [scheme, encoded] = authHeader.split(" ");
+
+  if (scheme === "Basic" && encoded) {
+    const [user, pass] = Buffer.from(encoded, "base64").toString().split(":");
+    if (user === config.adminUsername && pass === config.adminPassword) {
+      next();
+      return;
+    }
+  }
+
+  res.set("WWW-Authenticate", 'Basic realm="Depicejas Admin"');
+  res.status(401).send("Autenticación requerida.");
+}
+
+app.use("/admin", requireAdminAuth, express.static(path.join(__dirname, "../admin")));
 
 // ── Verificación del webhook (Meta hace un GET al configurar la URL) ──────
 app.get("/webhook", (req, res) => {
@@ -55,6 +88,69 @@ app.post("/webhook", async (req, res) => {
 
 app.get("/health", (_req, res) => {
   res.json({ status: "ok" });
+});
+
+// ── Reservas desde el formulario de la landing page ────────────────────────
+app.post("/api/reservations", async (req, res) => {
+  const { name, email, phone, service, preferredDate, preferredTime, notes } = req.body || {};
+
+  const errors: string[] = [];
+  if (!name || typeof name !== "string") errors.push("name");
+  if (!email || typeof email !== "string" || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) errors.push("email");
+  if (!service || typeof service !== "string") errors.push("service");
+  if (!preferredDate || typeof preferredDate !== "string") errors.push("preferredDate");
+  if (!preferredTime || typeof preferredTime !== "string") errors.push("preferredTime");
+
+  if (errors.length > 0) {
+    res.status(400).json({ error: `Datos inválidos o faltantes: ${errors.join(", ")}` });
+    return;
+  }
+
+  try {
+    const reservation = saveReservation({
+      name,
+      email,
+      phone: typeof phone === "string" ? phone : undefined,
+      service,
+      preferredDate,
+      preferredTime,
+      notes: typeof notes === "string" ? notes : undefined,
+    });
+
+    await sendReservationEmails(reservation);
+
+    res.status(201).json({ ok: true });
+  } catch (err) {
+    console.error("Error procesando reserva:", err);
+    res.status(500).json({ error: "No se pudo procesar la reserva. Intenta de nuevo o escríbenos por WhatsApp." });
+  }
+});
+
+// ── API protegida del panel de administrador ────────────────────────────────
+app.get("/admin/api/reservations", requireAdminAuth, (_req, res) => {
+  res.json(listReservations());
+});
+
+app.patch("/admin/api/reservations/:id/contacted", requireAdminAuth, (req, res) => {
+  const id = Number(req.params.id);
+  const contacted = Boolean(req.body?.contacted);
+
+  const updated = setReservationContacted(id, contacted);
+  if (!updated) {
+    res.status(404).json({ error: "Reserva no encontrada." });
+    return;
+  }
+  res.json(updated);
+});
+
+app.delete("/admin/api/reservations/:id", requireAdminAuth, (req, res) => {
+  const id = Number(req.params.id);
+  const deleted = deleteReservation(id);
+  if (!deleted) {
+    res.status(404).json({ error: "Reserva no encontrada." });
+    return;
+  }
+  res.status(204).send();
 });
 
 app.listen(config.port, () => {
