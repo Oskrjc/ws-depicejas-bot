@@ -84,11 +84,11 @@ export const businessConfig = {
   // resolver algo o el usuario pida hablar con una persona
   humanContact: {
     name: "Joselyn Salinas",
-    phone: "+56 9 2017 7117",
+    phone: "+56 9 2016 7117",
     // Número de WhatsApp de Joselyn en formato internacional sin "+" ni
     // espacios (el mismo formato que usa la Cloud API), para que el bot le
     // envíe una notificación automática cuando escale un caso.
-    whatsappNumber: "56920177117",
+    whatsappNumber: "56920167117",
     escalationInstructions:
       "Escala SIEMPRE usando la herramienta escalate_to_human (no intentes resolverlo tú) cuando: " +
       "(1) el cliente presenta una queja o reclamo por un servicio, " +
