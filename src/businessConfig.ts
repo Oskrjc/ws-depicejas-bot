@@ -64,7 +64,7 @@ export const businessConfig = {
   faq: [
     {
       question: "¿Dónde atienden?",
-      answer: "Atendemos en nuestra oficina: Carlos Silva Vildosola 1068, dpto 804. También hacemos atención a domicilio según la ubicación, con un cargo extra por desplazamiento — para domicilio te derivamos con Joselyn para confirmar el costo exacto.",
+      answer: "Atendemos en nuestra oficina: Carlos Silva Vildosola 1068, San Miguel. También hacemos atención a domicilio según la ubicación, con un cargo extra por desplazamiento — para domicilio te derivamos con Joselyn para confirmar el costo exacto.",
     },
     {
       question: "¿Cómo se paga?",
@@ -84,11 +84,11 @@ export const businessConfig = {
   // resolver algo o el usuario pida hablar con una persona
   humanContact: {
     name: "Joselyn Salinas",
-    phone: "+56 9 7995 0691",
+    phone: "+56 9 2017 7117",
     // Número de WhatsApp de Joselyn en formato internacional sin "+" ni
     // espacios (el mismo formato que usa la Cloud API), para que el bot le
     // envíe una notificación automática cuando escale un caso.
-    whatsappNumber: "56997950691",
+    whatsappNumber: "56920177117",
     escalationInstructions:
       "Escala SIEMPRE usando la herramienta escalate_to_human (no intentes resolverlo tú) cuando: " +
       "(1) el cliente presenta una queja o reclamo por un servicio, " +
