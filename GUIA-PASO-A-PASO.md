@@ -1,54 +1,65 @@
-# Guía paso a paso: cómo se construyó este proyecto
+# Depicejas Beyond Beauty — Guía completa del proyecto
 
-Este documento explica, en orden, todo lo que se hizo para pasar de "no tengo
-página web" a lo que tienes hoy: landing page + sistema de reservas + panel
-de administrador, todo subido a GitHub. La idea es que puedas repetir el
-proceso tú mismo en un proyecto futuro, o entender qué tocar si quieres
-seguir modificando este.
+Documento del paso a paso de cómo se construyó y publicó el sitio web de
+**Depicejas Beyond Beauty**, desde que no existía nada hasta tenerlo en
+producción con dominio propio.
+
+Sirve para dos cosas: entender qué tocar si quieres seguir modificando este
+proyecto, y repetir el proceso en un proyecto futuro.
+
+**Resultado final:**
+- Sitio público: `https://depicejas.ooli.uk`
+- Panel de reservas: `https://depicejas.ooli.uk/admin` (con contraseña)
+- Repositorio: `github.com/Oskrjc/ws-depicejas-bot`
+- Hosting: Railway · DNS: Cloudflare
 
 ---
 
-## 1. Punto de partida
+# FASE 0 — Punto de partida y decisiones
 
-Ya existía un proyecto de Node.js + TypeScript (el bot de WhatsApp), con:
+Ya existía un proyecto de Node.js + TypeScript (el bot de WhatsApp con
+Claude), con esta estructura:
+
 ```
-src/            # código del bot
+src/              # código del bot
 package.json
 tsconfig.json
 .env.example
 .gitignore
 ```
-No había ninguna carpeta de sitio web todavía. Antes de escribir código, se
-definieron dos cosas con preguntas simples:
-- **Tipo de página**: landing page de cara al cliente (no un panel interno).
-- **Stack**: HTML/CSS/JS simple, sin framework ni build — el sitio más
-  simple posible para lo que se necesitaba.
 
-**Lección para la próxima vez:** antes de picar código, decide en una frase
-qué es la página y con qué tecnología la vas a hacer. Evita perder tiempo
-más adelante.
+No había ninguna carpeta de sitio web. Antes de escribir código se
+definieron dos cosas:
+
+- **Tipo de página**: landing page de cara al cliente (no un panel interno).
+- **Stack**: HTML/CSS/JS simple, sin framework ni build.
+
+> **Lección:** antes de picar código, define en una frase qué es la página y
+> con qué tecnología la vas a hacer. Evita rehacer trabajo después.
 
 ---
 
-## 2. Landing page — estructura de archivos
+# FASE 1 — Landing page estática
 
-Se creó una carpeta `web/` (separada de `src/`, que es el código del bot)
-con tres archivos:
+## 1.1 Estructura de archivos
+
+Se creó una carpeta `web/` (separada de `src/`, que es el código del bot):
+
 ```
 web/
   index.html   ← contenido y estructura
   styles.css   ← todo el diseño
-  script.js    ← pequeñas interacciones (carrusel, formulario, año del footer)
+  script.js    ← interacciones (carrusel, formulario, año del footer)
+  images/      ← fotos del negocio
 ```
-Nada de build, nada de npm packages para el frontend — se abre directo en
-el navegador o se sirve como archivos estáticos.
 
----
+Sin build, sin paquetes npm para el frontend. Se abre directo en el
+navegador o se sirve como archivos estáticos.
 
-## 3. Paleta de colores y tipografía con variables CSS
+## 1.2 Paleta de colores y tipografía con variables CSS
 
-En vez de escribir colores sueltos por todo el CSS (`#b8635a` aquí, `#b8635a`
-allá), se definieron **variables CSS** una sola vez arriba del archivo:
+En vez de repetir colores por todo el CSS, se definieron **variables** una
+sola vez arriba del archivo:
 
 ```css
 :root {
@@ -67,27 +78,27 @@ allá), se definieron **variables CSS** una sola vez arriba del archivo:
 }
 ```
 
-Después, en cualquier parte del CSS se usa `var(--color-primary)` en vez del
-código de color. **Ventaja clave:** cuando pediste cambiar el fondo (varias
-veces — DarkSalmon, luego FFB8BC, luego F4D3BE), solo hubo que cambiar el
-valor de `--color-bg` en un solo lugar, y todo el sitio se actualizó solo.
+Después, en todo el CSS se usa `var(--color-primary)` en vez del código de
+color.
 
-Las tipografías se cargan desde Google Fonts en el `<head>` del HTML:
+> **Por qué importa:** el fondo se cambió tres veces durante el proyecto
+> (DarkSalmon → #FFB8BC → #F4D3BE). Con variables, cada cambio fue editar
+> **una línea** y todo el sitio se actualizó solo.
+
+Las tipografías se cargan desde Google Fonts en el `<head>`:
+
 ```html
 <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600;700&family=Jost:wght@300;400;500&family=Manrope:wght@400;500;600;700&display=swap" rel="stylesheet">
 ```
-- **Cormorant Garamond**: la serif elegante para títulos.
-- **Jost**: la sans-serif geométrica para el nombre de marca (buscando
-  parecerse al logo real).
-- **Manrope**: la tipografía de lectura para párrafos y botones.
 
----
+- **Cormorant Garamond** — serif elegante para títulos.
+- **Jost** — sans-serif geométrica para el nombre de marca (imita el logo).
+- **Manrope** — tipografía de lectura para párrafos y botones.
 
-## 4. Construir las secciones de la landing page
+## 1.3 Patrón de las secciones
 
-Cada sección del sitio es un `<section>` con un `id` (para los links del
-menú tipo `#servicios`) y una clase `section` o `section-alt` (para
-alternar el color de fondo). El patrón se repite:
+Cada sección es un `<section>` con un `id` (para los links del menú tipo
+`#servicios`) y una clase `section` o `section-alt` (para alternar el fondo):
 
 ```html
 <section id="servicios" class="section">
@@ -99,38 +110,21 @@ alternar el color de fondo). El patrón se repite:
 </section>
 ```
 
-Secciones que se construyeron, en orden de aparición:
-1. **Hero** (título principal + CTA)
-2. **Servicios y precios** (acordeones — ver punto 5)
-3. **Galería** (carrusel de fotos — ver punto 6)
-4. **Un poco de mí** (teaser + link a página aparte)
-5. **Reserva tu hora** (formulario — ver punto 7)
-6. **Horario** (con tarjeta de info + iconos SVG)
-7. **Preguntas frecuentes** (usando `<details>`/`<summary>`, sin JavaScript)
-8. **Contacto / CTA final**
+Secciones construidas, en orden:
 
-**Truco usado para las FAQ y los acordeones de servicios:** el elemento
-HTML nativo `<details>` con `<summary>` se abre/cierra solo, sin escribir
-ni una línea de JavaScript:
-```html
-<details>
-  <summary>¿Cómo se paga?</summary>
-  <p>Aceptamos efectivo y transferencia...</p>
-</details>
-```
-El navegador maneja el clic y el abrir/cerrar automáticamente. Solo se
-estilizó con CSS (quitando el triangulito por defecto y agregando el
-"+"/"–" o la flechita ⌄).
+1. **Hero** — título principal sobre foto de fondo, texto centrado
+2. **Servicios y precios** — acordeones (ver 1.4)
+3. **Galería** — carrusel de fotos (ver 1.5)
+4. **Reserva tu hora** — formulario (ver Fase 2)
+5. **Horario** — con tarjeta de info e iconos SVG
+6. **Preguntas frecuentes** — `<details>`/`<summary>`, sin JavaScript
+7. **Contacto / CTA final**
 
----
+## 1.4 Acordeones de servicios (sin JavaScript)
 
-## 5. El acordeón de servicios (botones que despliegan precios)
-
-Se pidió que "Servicios y precios" no mostrara todo de un tirón, sino 3
-botones (Depilación facial / corporal / Lifting & Browlamination) que al
-hacer clic despliegan su lista. Se resolvió con el mismo truco de
-`<details>`/`<summary>`, pero estilizando el `<summary>` como un botón
-grande en vez de una fila de FAQ:
+Se pedía que "Servicios y precios" mostrara 3 botones que al hacer click
+desplegaran su lista. Se resolvió con el elemento HTML nativo
+`<details>`/`<summary>`, que se abre y cierra solo:
 
 ```html
 <details class="service-accordion" open>
@@ -144,18 +138,26 @@ grande en vez de una fila de FAQ:
   </ul>
 </details>
 ```
-El CSS le da forma de tarjeta/botón, y una regla rota la flechita 180°
-cuando está abierto:
+
+El CSS le da forma de botón y rota la flechita cuando está abierto:
+
 ```css
 .service-accordion[open] .service-accordion-btn .chevron { transform: rotate(180deg); }
 ```
 
----
+El mismo truco se usó para las FAQ.
 
-## 6. El carrusel de fotos (galería)
+> **Bug encontrado y corregido:** las reglas CSS de `details`/`summary`
+> estaban escritas de forma genérica (para las FAQ) y se "colaban" también
+> en los acordeones de servicios, duplicando el padding y mostrando un "+"
+> de más. Se corrigió acotando los selectores a `.faq-list details`.
+> **Lección:** cuando uses un elemento HTML genérico en varios lugares,
+> acota los estilos con una clase padre.
 
-Es una fila horizontal con scroll nativo del navegador (`overflow-x: auto`
-+ `scroll-snap-type: x mandatory`), sin ninguna librería de carruseles:
+## 1.5 Carrusel de fotos (sin librerías)
+
+Es una fila con scroll horizontal nativo del navegador:
+
 ```css
 .carousel-track {
   display: flex;
@@ -166,166 +168,410 @@ Es una fila horizontal con scroll nativo del navegador (`overflow-x: auto`
 }
 .carousel-slide { flex: 0 0 240px; scroll-snap-align: start; }
 ```
-Las flechitas ‹ › solo llaman a `scrollBy()` en JavaScript:
+
+Las flechas ‹ › solo llaman a `scrollBy()`:
+
 ```js
 document.querySelector(".carousel-prev").addEventListener("click", () => {
   carouselTrack.scrollBy({ left: -scrollAmount(), behavior: "smooth" });
 });
 ```
+
 Al principio se usaron tarjetas de relleno (ícono + texto) porque no había
-fotos reales todavía. Cuando compartiste las fotos, se reemplazó cada
-`<div>` de relleno por un `<img>` real apuntando a `images/nombre-archivo.jpeg`.
+fotos reales. Cuando llegaron las fotos, se reemplazó cada tarjeta por un
+`<img>` con `object-fit: cover` para que todas se recorten parejo.
 
 ---
 
-## 7. Formulario de reserva → correo + base de datos (esto ya es backend)
+# FASE 2 — Backend: reservas por correo + base de datos
 
-Aquí el sitio deja de ser "solo HTML" y empieza a necesitar un servidor,
-porque un sitio estático no puede enviar correos ni guardar datos por su
-cuenta. Como el proyecto ya tenía un servidor Express (`src/server.ts`) para
-el bot de WhatsApp, se reutilizó ese mismo servidor.
+Aquí el sitio deja de ser "solo HTML". Un sitio estático **no puede** enviar
+correos ni guardar datos. Como el proyecto ya tenía un servidor Express
+(`src/server.ts`) para el bot, se reutilizó ese mismo servidor.
 
-**Piezas nuevas creadas:**
+## 2.1 Piezas nuevas
 
-- **`src/reservationsDb.ts`** — usa el paquete `better-sqlite3` para crear
-  un archivo de base de datos (`data/reservations.db`) con una tabla
-  `reservations`. Funciones: `saveReservation()`, `listReservations()`,
-  `setReservationContacted()`, `deleteReservation()`.
+**`src/reservationsDb.ts`** — usa `better-sqlite3` para crear un archivo de
+base de datos con la tabla `reservations`. Funciones expuestas:
+`saveReservation()`, `listReservations()`, `setReservationContacted()`,
+`deleteReservation()`.
 
-- **`src/mailer.ts`** — usa el paquete `nodemailer` para enviar correos
-  con una cuenta de Gmail. Necesita una **"contraseña de aplicación"** de
-  16 caracteres (no la contraseña normal de la cuenta), que se genera en
-  `myaccount.google.com/apppasswords` después de activar la verificación
-  en 2 pasos.
+**`src/mailer.ts`** — usa `nodemailer` para enviar correos con Gmail.
+Envía dos correos por reserva: uno interno con los datos, y uno de
+confirmación al cliente.
 
-- **En `src/server.ts`**, se agregó una ruta:
-  ```ts
-  app.post("/api/reservations", async (req, res) => {
-    // valida los datos del formulario
-    // guarda con saveReservation()
-    // envía los correos con sendReservationEmails()
-  });
-  ```
+**Ruta nueva en `src/server.ts`:**
 
-- **En el HTML/JS del formulario** (`web/index.html` + `web/script.js`), el
-  `<form>` no recarga la página — un listener de JavaScript intercepta el
-  `submit`, arma un JSON y lo manda con `fetch()`:
-  ```js
-  const response = await fetch("/api/reservations", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(payload),
-  });
-  ```
+```ts
+app.post("/api/reservations", async (req, res) => {
+  // valida los datos del formulario
+  // guarda con saveReservation()
+  // envía los correos con sendReservationEmails()
+});
+```
 
-- **Variables nuevas en `.env`**: `GMAIL_USER`, `GMAIL_APP_PASSWORD`,
-  `OWNER_NOTIFICATION_EMAIL`, `RESERVATIONS_DB_PATH`.
+**En el frontend** (`web/script.js`), el formulario no recarga la página —
+un listener intercepta el `submit` y manda un JSON con `fetch()`:
 
-**Para que el navegador y el servidor "se hablen" sin problemas de
-permisos (CORS)**, se hizo que el mismo servidor Express sirviera también
-la carpeta `web/` como sitio estático:
+```js
+const response = await fetch("/api/reservations", {
+  method: "POST",
+  headers: { "Content-Type": "application/json" },
+  body: JSON.stringify(payload),
+});
+```
+
+## 2.2 Servir el sitio desde el mismo servidor
+
+Para que el navegador y el backend estén en el mismo dominio (y no haya
+problemas de CORS), Express también sirve la carpeta `web/`:
+
 ```ts
 app.use(express.static(path.join(__dirname, "../web")));
 ```
-Así, visitando `http://localhost:3000` (o la URL de Railway en producción)
-se ve la landing page Y el formulario le puede hablar al backend en el
-mismo dominio.
+
+Así, `http://localhost:3000` muestra la landing page **y** el formulario
+puede hablarle al backend sin configuración extra.
+
+## 2.3 Configurar el envío de correos con Gmail
+
+Gmail no acepta la contraseña normal de la cuenta desde una aplicación.
+Hay que generar una **contraseña de aplicación**:
+
+1. Entra a [myaccount.google.com/security](https://myaccount.google.com/security)
+2. Activa la **Verificación en 2 pasos** (es requisito — sin esto, la opción
+   de contraseñas de aplicación **no aparece**).
+3. Ve a [myaccount.google.com/apppasswords](https://myaccount.google.com/apppasswords)
+4. Crea una nueva y copia el código de **16 caracteres**.
+
+Variables agregadas al `.env`:
+
+```
+GMAIL_USER=Depicejas.cl@gmail.com
+GMAIL_APP_PASSWORD=xxxxxxxxxxxxxxxx
+OWNER_NOTIFICATION_EMAIL=Depicejas.cl@gmail.com
+RESERVATIONS_DB_PATH=./data/reservations.db
+```
+
+> ⚠️ El archivo `.env` **nunca** se sube al repositorio (está en
+> `.gitignore`). Tampoco compartas capturas de pantalla de él.
 
 ---
 
-## 8. Panel de administrador (`/admin`)
+# FASE 3 — Panel de administrador
 
-Para ver/gestionar las reservas sin abrir la base de datos a mano, se creó:
+Para ver y gestionar las reservas sin abrir la base de datos a mano.
 
-- **`admin/` (carpeta aparte, NO dentro de `web/`)** — un `index.html` +
-  `styles.css` + `script.js` propio, muy simple: una tabla que carga las
-  reservas con `fetch("/admin/api/reservations")` y permite marcar
-  "contactada" o eliminar.
+## 3.1 Archivos
 
-- **Protección con usuario/contraseña (HTTP Basic Auth)** en
-  `src/server.ts`: un middleware `requireAdminAuth` que revisa el header
-  `Authorization` de cada request contra `ADMIN_USERNAME`/`ADMIN_PASSWORD`
-  del `.env`. Si no coinciden, responde `401` y el navegador muestra el
-  clásico cuadro de "usuario y contraseña".
-  ```ts
-  app.use("/admin", requireAdminAuth, express.static(path.join(__dirname, "../admin")));
-  ```
+Se creó una carpeta **`admin/` aparte de `web/`**:
 
-**Por qué en una carpeta aparte de `web/`:** si el panel estuviera dentro
-de `web/`, quedaría servido públicamente sin contraseña por el
-`express.static` del sitio principal. Ponerlo en su propia carpeta,
-protegida explícitamente, evita ese error.
+```
+admin/
+  index.html   # tabla de reservas
+  styles.css
+  script.js    # carga los datos vía fetch, marca contactada, elimina
+```
 
----
+> **Por qué en carpeta aparte:** si estuviera dentro de `web/`, el
+> `express.static` del sitio público la serviría **sin contraseña**.
+> Ponerla en su propia carpeta protegida evita ese error de seguridad.
 
-## 9. Fotos y assets (`web/images/`)
+## 3.2 Protección con usuario y contraseña
 
-Las fotos que compartiste se guardaron en `web/images/`, y cada `<img>` o
-`background-image` del CSS apunta a `images/nombre-del-archivo.jpeg`.
+Un middleware de autenticación básica (HTTP Basic Auth) en `src/server.ts`:
 
-**Detalle importante que se corrigió:** la carpeta se llamaba `Images`
-(con mayúscula) en el disco, pero el código la referenciaba como `images`
-(minúscula). Windows no distingue mayúsculas de minúsculas, así que
-funcionaba en local — pero un servidor Linux (como Railway) sí distingue,
-así que se habría roto en producción. Se corrigió renombrando la carpeta a
-minúscula antes de subir el proyecto.
+```ts
+app.use("/admin", requireAdminAuth, express.static(path.join(__dirname, "../admin")));
+```
 
-**Lección:** en proyectos web, usa siempre el mismo "casing" (mayúsculas/
-minúsculas) entre el nombre real del archivo y como lo escribes en el
-código — y pruébalo idealmente en un sistema que sí distinga mayúsculas
-antes de desplegar.
+`requireAdminAuth` compara contra `ADMIN_USERNAME` y `ADMIN_PASSWORD` del
+`.env`. Si no coinciden, responde `401` y el navegador muestra el cuadro de
+login. Si `ADMIN_PASSWORD` está vacío, el panel se desactiva por completo
+(error 503) para que nunca quede accidentalmente abierto.
+
+Las rutas de la API (`/admin/api/reservations`) también están protegidas
+individualmente, no solo los archivos.
 
 ---
 
-## 10. Git y GitHub
+# FASE 4 — Contenido de marca
 
-Pasos que corriste tú mismo en la terminal (repetibles para cualquier
-proyecto nuevo):
+## 4.1 Fotos
+
+Las fotos se guardaron en `web/images/`, y cada `<img>` o `background-image`
+apunta a `images/nombre-archivo.jpeg`.
+
+> ⚠️ **Lección de seguridad:** en un momento se subió por error un PDF con
+> datos personales a `web/images/`. Todo lo que esté en `web/` queda
+> **público en internet** cuando despliegas. Revisa siempre qué archivos
+> hay en esa carpeta antes de publicar.
+
+> ⚠️ **Lección técnica (mayúsculas/minúsculas):** la carpeta se llamaba
+> `Images` en el disco pero el código la referenciaba como `images`.
+> Windows no distingue mayúsculas, así que funcionaba en local — pero
+> **Linux sí distingue**, y en Railway todas las fotos se habrían roto.
+> Se renombró a minúscula antes de desplegar. Usa siempre el mismo
+> "casing" entre el archivo real y el código.
+
+## 4.2 Segunda página: "Un poco de mí"
+
+Se creó `web/sobre-mi.html` como **página separada** (no una sección de la
+home), con la historia del emprendimiento. Detalles:
+
+- Reutiliza el mismo `styles.css` — no hay CSS duplicado.
+- El link en el menú es `sobre-mi.html`; los links a secciones de la home
+  desde ahí son `index.html#servicios`, etc.
+- Se le dio estilo distinto al link del menú (`.nav-story`) para que
+  destaque: tipografía serif itálica dentro de una píldora con borde.
+
+## 4.3 Botones flotantes de WhatsApp e Instagram
+
+Fijos en la esquina inferior derecha, presentes en ambas páginas:
+
+```css
+.floating-actions {
+  position: fixed;
+  right: 24px;
+  bottom: 24px;
+  z-index: 999;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+```
+
+Los íconos son **SVG inline** (el logo real de cada marca), no emojis. El de
+WhatsApp usa el link `https://wa.me/<numero>?text=<mensaje-precargado>`, con
+el número en formato internacional sin `+` ni espacios.
+
+---
+
+# FASE 5 — Control de versiones (Git + GitHub)
+
+## 5.1 Primera vez (proyecto nuevo)
+
+1. Crea el repositorio **vacío** en GitHub (sin README, sin .gitignore, sin
+   licencia — el código local ya los tiene).
+2. En la terminal, dentro de la carpeta del proyecto:
 
 ```bash
-cd "ruta\del\proyecto"
 git init                          # crea el repositorio local
+git status                        # revisa que NO aparezca .env ni credenciales
 git add .                         # marca los archivos para el commit
-git commit -m "mensaje"           # guarda una "foto" del código
+git commit -m "Initial commit"    # guarda una "foto" del código
 git branch -M main                # nombra la rama principal
-git remote add origin <URL>       # conecta con el repo vacío de GitHub
+git remote add origin https://github.com/TU-USUARIO/TU-REPO.git
 git push -u origin main           # sube todo por primera vez
 ```
 
-Para cambios posteriores, el ciclo se repite pero más corto:
+## 5.2 Ciclo normal (cada cambio posterior)
+
 ```bash
 git add .
 git commit -m "descripción del cambio"
 git push
 ```
 
-**Cosas que fallaron en el camino y cómo se resolvieron** (útil si te
-vuelve a pasar):
-- Escribir la ruta del `git remote add origin` con un placeholder literal
-  (`TU-USUARIO`) en vez del usuario real → se corrigió con
-  `git remote set-url origin <url-correcta>`.
-- `npm`/`node` no reconocidos en una terminal nueva → el Node.js estaba
-  instalado vía **fnm** (gestor de versiones), que hay que activar en cada
-  ventana nueva con `fnm env --use-on-cd | Out-String | Invoke-Expression`
-  seguido de `fnm use default` (o dejarlo configurado permanentemente en el
-  perfil de PowerShell).
-- Guardar cambios en `.env` no reinicia el servidor solo — hay que parar
-  (`Ctrl+C`) y volver a correr `npm run dev` para que tome las variables
-  nuevas.
+## 5.3 Qué NUNCA se sube
+
+El `.gitignore` del proyecto excluye:
+
+```
+node_modules/
+dist/
+.env
+google-service-account.json
+*.log
+data/          ← la base de datos de reservas
+```
 
 ---
 
-## 11. Resumen del flujo para la próxima vez
+# FASE 6 — Despliegue a producción (Railway)
 
-1. Define en una frase qué página necesitas y con qué stack.
-2. Crea la estructura de carpetas (`web/` para frontend estático, o lo que
-   corresponda).
-3. Define tu paleta de colores como variables CSS *antes* de escribir el
-   resto del diseño — te ahorra reescribir todo cuando cambies de opinión.
-4. Construye sección por sección, probando en el navegador después de cada
-   cambio importante.
-5. Si necesitas guardar datos o enviar correos, ahí recién entra un
-   backend (Node/Express en este caso) — un sitio 100% estático no puede
-   hacer eso por sí solo.
-6. Sube a GitHub temprano y sigue el ciclo `add` → `commit` → `push` cada
-   vez que tengas un avance que valga la pena guardar.
+## 6.1 Por qué Railway y no Cloudflare Pages
+
+Se intentó primero con **Cloudflare Pages** y no funcionó. La razón:
+Cloudflare Pages solo sirve **archivos estáticos** — no ejecuta Node.js. Con
+él, el formulario de reservas y el panel `/admin` no funcionarían.
+
+**Regla general:**
+- Sitio 100% estático (solo HTML/CSS/JS) → Cloudflare Pages, Netlify, GitHub Pages
+- Sitio con backend (base de datos, correos, login) → Railway, Render, Fly.io
+
+## 6.2 Crear el proyecto en Railway
+
+1. Entra a [railway.app](https://railway.app) y crea cuenta (puedes usar GitHub).
+2. **New Project** → **Deploy from GitHub repo** → selecciona el repositorio.
+3. Railway detecta el `package.json` y corre `npm run build` + `npm start`
+   automáticamente.
+
+## 6.3 Variables de entorno
+
+En la pestaña **Variables** del servicio, agrega todas las del `.env` local.
+
+> ⚠️ **Error real encontrado:** el traductor automático de Chrome estaba
+> traduciendo la interfaz de Railway, mostrando `ANTHROPIC_API_KEY` como
+> `CLAVE_API_ANTRÓPICA` y "Railway" como "Ferrocarril". Los nombres de las
+> variables **deben ser exactos en inglés** o la app no arranca.
+> **Desactiva la traducción de la página** antes de configurarlas.
+
+> **Nota sobre `PORT`:** no la definas manualmente. Railway asigna el puerto
+> automáticamente y el código lo lee con `process.env.PORT`. Si la fuerzas a
+> 3000, el sitio puede dar error 502.
+
+## 6.4 Volumen para la base de datos (crítico)
+
+El disco de un contenedor es **temporal**: se borra en cada redespliegue.
+Sin un volumen, **todas las reservas se pierden cada vez que haces `git push`**.
+
+1. En el lienzo de Railway, click derecho → **Volume** (o `Ctrl + K` → "volume").
+2. Adjúntalo al servicio.
+3. **Mount path:** `/data`
+4. Cambia la variable `RESERVATIONS_DB_PATH` a **`/data/reservations.db`**
+
+> ⚠️ El detalle que se pasa por alto: debe ser la ruta **absoluta**
+> `/data/reservations.db`. Si la dejas como `./data/reservations.db` (con
+> punto), apunta al disco temporal del contenedor y el volumen no sirve.
+
+## 6.5 Verificar
+
+En **Settings → Networking → Public Networking**, click en
+**Generate Domain**. Railway da una URL tipo
+`ws-depicejas-bot-production.up.railway.app`.
+
+Checklist de verificación:
+- [ ] La landing page carga con las fotos
+- [ ] `/admin` pide usuario y contraseña
+- [ ] Enviar una reserva de prueba → llegan los dos correos
+- [ ] La reserva aparece en el panel
+
+---
+
+# FASE 7 — Dominio propio y DNS (Cloudflare)
+
+## 7.1 Agregar el dominio en Railway
+
+**Settings → Public Networking → + Custom Domain** → escribe el dominio
+(en este caso `depicejas.ooli.uk`). Railway devuelve un registro **CNAME**
+con un valor tipo `v3niwzou.up.railway.app`.
+
+> ⚠️ **Límite del plan de prueba:** Railway solo permite **1 dominio
+> personalizado por servicio** en el plan gratuito. Si el botón aparece
+> deshabilitado, es porque ya tienes uno — bórralo o pasa al plan Hobby.
+
+## 7.2 Configurar el DNS en Cloudflare
+
+1. Cloudflare → tu dominio → **DNS → Records → Add record**
+2. Llena:
+   - **Type:** `CNAME`
+   - **Name:** `depicejas` ← solo el subdominio, no el dominio completo
+     (usa `@` si quieres el dominio raíz)
+   - **Target:** el valor que dio Railway
+   - **Proxy status:** nube **gris (DNS only)** mientras Railway emite el
+     certificado SSL
+3. Guarda y espera entre 2 minutos y 1 hora.
+
+## 7.3 Problemas comunes de DNS
+
+| Error | Causa | Solución |
+|---|---|---|
+| "A record with that host already exists" | Ya existe un CNAME con ese nombre | Cancela, revisa la lista y edita/elimina el duplicado en vez de crear otro |
+| Railway dice "Cloudflare proxy detected" | La nube está naranja | Ponla gris, o si la quieres naranja, cambia SSL/TLS a modo **Full** (no "Flexible", que causa bucles de redirección) |
+| El sitio no carga después de 1 hora | DNS mal escrito o proxy mal configurado | Verifica que el Target sea exactamente el de Railway |
+
+Railway también crea registros `TXT` de verificación (`_railway-verify.*`).
+No los borres.
+
+---
+
+# FASE 8 — Ciclo de actualización continua
+
+Una vez todo está en producción, actualizar el sitio es simple porque
+Railway está conectado a GitHub con despliegue automático:
+
+```
+1. Editas los archivos localmente
+2. git add .
+3. git commit -m "descripción"
+4. git push
+5. Railway detecta el push y redespliega solo (1-2 min)
+6. Ctrl + F5 en el navegador para ver los cambios
+```
+
+Si algo sigue apareciendo viejo, Cloudflare puede estar cacheando:
+**Caching → Configuration → Purge Everything**.
+
+---
+
+# ANEXO A — Errores encontrados y cómo se resolvieron
+
+| Problema | Causa | Solución |
+|---|---|---|
+| `npm` / `node` no reconocidos | Node instalado vía **fnm**, que no se activa solo en cada terminal | `fnm env --use-on-cd \| Out-String \| Invoke-Expression` y luego `fnm use default` |
+| `git remote add origin` con `TU-USUARIO` | Se copió el ejemplo literal | `git remote set-url origin <url-real>` |
+| Cambios en `.env` no se aplican | `ts-node-dev` solo reinicia con cambios en `.ts` | Detener con `Ctrl+C` y volver a correr `npm run dev` |
+| `Cannot find module 'better-sqlite3'` | Dependencias nuevas sin instalar | `npm install` |
+| Fotos rotas en producción | Carpeta `Images` vs código `images` | Linux distingue mayúsculas — unificar el casing |
+| Variables de Railway con nombres raros | Traductor de Chrome activo | Desactivar traducción de la página |
+| Botón "Custom Domain" deshabilitado | Límite de 1 dominio en plan de prueba | Borrar el dominio anterior o subir de plan |
+
+---
+
+# ANEXO B — Costos y mantenimiento
+
+| Servicio | Costo | Nota |
+|---|---|---|
+| **Railway** | US$5/mes (plan Hobby) | La prueba gratuita expira a los 30 días o al gastar US$5. Después de eso, el sitio se cae si no se paga. |
+| **Cloudflare DNS** | Gratis | Solo pagas el registro del dominio |
+| **Dominio `ooli.uk`** | Ya registrado | Vence Jul 2027, renovación automática activa |
+| **Gmail (correos)** | Gratis | Dentro de los límites normales de envío |
+| **Claude API** (bot) | Por uso | Solo si activas el bot de WhatsApp |
+
+---
+
+# ANEXO C — Estructura final del proyecto
+
+```
+src/
+  businessConfig.ts     # ← datos del negocio (precios, horario, contacto)
+  config.ts             # carga de variables de entorno
+  whatsapp.ts           # cliente de WhatsApp Cloud API
+  calendar.ts           # integración con Google Calendar
+  claude.ts             # lógica del bot + herramientas
+  conversationStore.ts  # historial de conversación en memoria
+  reminders.ts          # cron job de recordatorios
+  reservationsDb.ts     # base de datos SQLite de reservas web
+  mailer.ts             # envío de correos (Gmail)
+  server.ts             # Express: webhook + API + sitio estático + /admin
+
+web/                    # sitio público
+  index.html
+  sobre-mi.html
+  styles.css
+  script.js
+  images/
+
+admin/                  # panel de reservas (protegido con contraseña)
+  index.html
+  styles.css
+  script.js
+```
+
+---
+
+# ANEXO D — Pendientes / mejoras posibles
+
+- **Bot de WhatsApp:** el código está listo pero falta configurar la cuenta
+  de WhatsApp Business API en Meta y la cuenta de servicio de Google
+  Calendar (ver secciones 1 y 2 del `README.md`). Al activarlo, el Callback
+  URL del webhook debe ser `https://depicejas.ooli.uk/webhook`.
+- **Dominio con el nombre del negocio:** hoy es `depicejas.ooli.uk`. Comprar
+  `depicejascl.com` (~US$11/año) daría una imagen más profesional. Se puede
+  agregar sin rehacer nada — solo un "+ Custom Domain" más.
+- **Historial de conversación del bot:** vive en memoria, se pierde al
+  reiniciar. Si el negocio crece, migrar `conversationStore.ts` a la misma
+  base de datos SQLite.
+- **Analítica:** no hay ninguna medición de visitas. Cloudflare Analytics
+  viene gratis con el dominio y no requiere cambios en el código.
