@@ -59,7 +59,7 @@ export const businessConfig = {
 
     // — Lifting de pestañas / Browlamination (1h a 1h20) —
     { name: "Lifting de pestañas", description: "Lifting de pestañas.", priceInfo: "$28.000", price: 28000, durationMinutes: 80 },
-    { name: "Browlamination", description: "Laminado de cejas.", priceInfo: "$21.000", price: 21000, durationMinutes: 70 },
+    { name: "Browlamination", description: "Laminado de cejas.", priceInfo: "$25.000", price: 25000, durationMinutes: 70 },
   ],
 
   // Preguntas frecuentes con sus respuestas — el bot las usa como base de
