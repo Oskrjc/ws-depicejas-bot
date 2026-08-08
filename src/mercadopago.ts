@@ -31,7 +31,8 @@ function getClient(): MercadoPagoConfig {
  */
 export async function createPaymentPreference(
   reservation: Reservation,
-  priceClp: number
+  priceClp: number,
+  payerRut: string
 ): Promise<{ preferenceId: string; checkoutUrl: string }> {
   const preference = new Preference(getClient());
 
@@ -56,6 +57,10 @@ export async function createPaymentPreference(
       payer: {
         name: reservation.name,
         email: reservation.email,
+        // Obligatorio para que MercadoPago procese pagos con tarjeta en
+        // Chile — sin esto, el botón "Pagar" de su checkout queda
+        // deshabilitado sin mostrar ningún error.
+        identification: { type: "RUT", number: payerRut },
       },
       back_urls: {
         success: `${config.baseUrl}/reserva-exitosa.html`,

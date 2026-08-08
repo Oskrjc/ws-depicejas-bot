@@ -108,11 +108,14 @@ const DEPOSIT_PERCENTAGE = 0.2;
 // confirmación se envía recién cuando el pago se confirma (ver
 // /api/payments/webhook).
 app.post("/api/reservations", async (req, res) => {
-  const { name, email, phone, services, preferredDate, preferredTime, notes, paymentOption } = req.body || {};
+  const { name, email, rut, phone, services, preferredDate, preferredTime, notes, paymentOption } = req.body || {};
 
   const errors: string[] = [];
   if (!name || typeof name !== "string") errors.push("name");
   if (!email || typeof email !== "string" || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) errors.push("email");
+  // MercadoPago Chile exige el RUT del pagador para procesar tarjetas — sin
+  // esto, el botón "Pagar" queda inactivo en su checkout sin ningún error visible.
+  if (!rut || typeof rut !== "string" || rut.trim().length < 3) errors.push("rut");
   if (!Array.isArray(services) || services.length === 0 || !services.every((s) => typeof s === "string")) {
     errors.push("services");
   }
@@ -160,7 +163,7 @@ app.post("/api/reservations", async (req, res) => {
       paymentOption,
     });
 
-    const { preferenceId, checkoutUrl } = await createPaymentPreference(reservation, priceToCharge);
+    const { preferenceId, checkoutUrl } = await createPaymentPreference(reservation, priceToCharge, rut.trim());
     setReservationPreferenceId(reservation.id, preferenceId);
 
     res.status(201).json({ ok: true, checkoutUrl });
