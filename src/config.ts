@@ -46,6 +46,14 @@ export const config = {
   adminUsername: process.env.ADMIN_USERNAME || "admin",
   adminPassword: process.env.ADMIN_PASSWORD || "",
 
+  // Pago online por MercadoPago (Checkout Pro) desde el formulario de la web.
+  // Opcional: si falta, /api/reservations responde con un error claro en vez
+  // de romper todo el servidor (mismo patrón que el panel de admin).
+  mercadopagoAccessToken: process.env.MERCADOPAGO_ACCESS_TOKEN || "",
+  // URL pública del sitio (sin barra al final), usada para las back_urls de
+  // MercadoPago y la notification_url del webhook de pagos.
+  baseUrl: (process.env.BASE_URL || `http://localhost:${process.env.PORT || 3000}`).replace(/\/$/, ""),
+
   port: Number(process.env.PORT || 3000),
 };
 

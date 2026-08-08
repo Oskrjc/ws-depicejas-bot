@@ -22,13 +22,34 @@ function getTransporter() {
   return transporter;
 }
 
+function formatClp(amount: number | null): string {
+  if (amount == null) return "(monto no registrado)";
+  return `$${amount.toLocaleString("es-CL")}`;
+}
+
+/** Línea describiendo qué se pagó: "Pago completo" o "Abono 20% (queda $X pendiente)". */
+function paymentSummaryLine(reservation: Reservation): string {
+  if (reservation.paymentOption !== "deposit") {
+    return "Pago completo (100%)";
+  }
+  const remaining =
+    reservation.fullPrice != null && reservation.price != null ? reservation.fullPrice - reservation.price : null;
+  return remaining != null
+    ? `Abono 20% — queda ${formatClp(remaining)} pendiente de pago presencial`
+    : "Abono 20%";
+}
+
 /**
- * Envía el correo de notificación a Joselyn y la confirmación al cliente.
- * Lanza un error si el correo de Joselyn falla (para que el endpoint avise
- * al cliente); si solo falla la confirmación al cliente, lo registra pero
- * no hace fallar la reserva completa, ya que esta ya quedó guardada.
+ * Envía los correos de una reserva CON EL PAGO YA CONFIRMADO por
+ * MercadoPago (llamar desde el webhook, no desde el submit del formulario —
+ * antes de eso el cliente todavía no pagó nada).
+ *
+ * Lanza un error si el correo interno a Joselyn falla (para poder
+ * reintentar/loguear); si solo falla la confirmación al cliente, lo
+ * registra pero no hace fallar el flujo, ya que el pago y la reserva ya
+ * quedaron guardados igual.
  */
-export async function sendReservationEmails(reservation: Reservation): Promise<void> {
+export async function sendPaymentConfirmedEmails(reservation: Reservation): Promise<void> {
   if (!isMailerConfigured()) {
     throw new Error(
       "El envío de correos no está configurado (faltan GMAIL_USER, GMAIL_APP_PASSWORD u OWNER_NOTIFICATION_EMAIL en .env)."
@@ -40,19 +61,20 @@ export async function sendReservationEmails(reservation: Reservation): Promise<v
   await mailer.sendMail({
     from: `"${businessConfig.name}" <${config.gmailUser}>`,
     to: config.ownerNotificationEmail,
-    subject: `Nueva reserva: ${reservation.service} — ${reservation.name}`,
+    subject: `✅ Pago recibido: ${reservation.service} — ${reservation.name}`,
     text: [
-      `Nueva solicitud de reserva desde la página web.`,
+      `Se confirmó el pago de una reserva hecha desde la página web.`,
       ``,
       `Cliente: ${reservation.name}`,
       `Correo: ${reservation.email}`,
       `Teléfono: ${reservation.phone || "(no indicado)"}`,
       `Servicio: ${reservation.service}`,
+      `Monto pagado: ${formatClp(reservation.price)} — ${paymentSummaryLine(reservation)}`,
       `Fecha preferida: ${reservation.preferredDate}`,
       `Hora preferida: ${reservation.preferredTime}`,
       `Notas: ${reservation.notes || "(sin notas)"}`,
       ``,
-      `Recuerda que esta es una solicitud, no una hora confirmada — contacta al cliente para coordinar disponibilidad y el abono del 20%.`,
+      `El pago ya está confirmado — contacta al cliente para confirmar definitivamente el horario (sujeto a disponibilidad real de la agenda).`,
     ].join("\n"),
   });
 
@@ -60,13 +82,17 @@ export async function sendReservationEmails(reservation: Reservation): Promise<v
     await mailer.sendMail({
       from: `"${businessConfig.name}" <${config.gmailUser}>`,
       to: reservation.email,
-      subject: `Recibimos tu solicitud de reserva — ${businessConfig.name}`,
+      subject: `Recibimos tu pago — ${businessConfig.name}`,
       text: [
         `¡Hola ${reservation.name}!`,
         ``,
-        `Recibimos tu solicitud para el servicio "${reservation.service}" el ${reservation.preferredDate} a las ${reservation.preferredTime}.`,
+        `Recibimos tu pago de ${formatClp(reservation.price)} por "${reservation.service}" para el ${reservation.preferredDate} a las ${reservation.preferredTime}. ¡Gracias!`,
         ``,
-        `Esto todavía no es una cita confirmada: ${businessConfig.humanContact.name} se pondrá en contacto contigo pronto para confirmar el horario y coordinar el abono del 20% requerido para reservar.`,
+        reservation.paymentOption === "deposit"
+          ? `Esto corresponde al abono del 20% — el resto del valor se paga presencial el día de tu cita.`
+          : `Pagaste el valor completo del servicio, así que no queda nada pendiente por pagar el día de tu cita.`,
+        ``,
+        `${businessConfig.humanContact.name} va a confirmarte el horario definitivo muy pronto (queda sujeto a disponibilidad real de la agenda). Si hay algún cambio, te contactamos enseguida.`,
         ``,
         `Si tienes dudas mientras tanto, puedes escribirnos por WhatsApp.`,
         ``,
@@ -74,6 +100,6 @@ export async function sendReservationEmails(reservation: Reservation): Promise<v
       ].join("\n"),
     });
   } catch (err) {
-    console.error("No se pudo enviar el correo de confirmación al cliente:", err);
+    console.error("No se pudo enviar el correo de confirmación de pago al cliente:", err);
   }
 }

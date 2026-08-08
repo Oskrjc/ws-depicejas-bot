@@ -82,3 +82,23 @@ tr.contacted { opacity: 0.55; }
   border-radius: 6px;
 }
 .icon-btn:hover { background: var(--border); }
+
+.payment-badge {
+  display: inline-block;
+  padding: 3px 10px;
+  border-radius: 999px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+.payment-badge-approved { background: #dcf5e0; color: #1e7a34; }
+.payment-badge-pending, .payment-badge-in_process { background: #fdf1d6; color: #93690a; }
+.payment-badge-rejected, .payment-badge-cancelled { background: #fbdede; color: #a3241c; }
+.payment-badge-refunded, .payment-badge-charged_back { background: #e6e1f5; color: #4b3b96; }
+
+@media (prefers-color-scheme: dark) {
+  .payment-badge-approved { background: #163a20; color: #7fe097; }
+  .payment-badge-pending, .payment-badge-in_process { background: #3a2d10; color: #f0c165; }
+  .payment-badge-rejected, .payment-badge-cancelled { background: #3a1917; color: #f39187; }
+  .payment-badge-refunded, .payment-badge-charged_back { background: #241d3a; color: #bcaef0; }
+}

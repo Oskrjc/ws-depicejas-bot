@@ -12,16 +12,16 @@ export const businessConfig = {
   timezone: "America/Santiago",
 
   // Horario de atención (para que el bot sepa cuándo puede ofrecer citas).
-  // Por ahora el negocio solo atiende jueves y domingo.
+  // El negocio atiende de lunes a sábado; domingo cerrado.
   businessHours: {
     // formato 24h "HH:mm"
-    monday: null,
-    tuesday: null,
-    wednesday: null,
-    thursday: { open: "08:30", close: "20:00" },
-    friday: null,
-    saturday: null,
-    sunday: { open: "08:30", close: "20:00" },
+    monday: { open: "10:00", close: "20:00" },
+    tuesday: { open: "10:00", close: "20:00" },
+    wednesday: { open: "10:00", close: "20:00" },
+    thursday: { open: "10:00", close: "20:00" },
+    friday: { open: "10:00", close: "20:00" },
+    saturday: { open: "10:00", close: "20:00" },
+    sunday: null,
   },
 
   // Duración por defecto de una cita, en minutos (fallback si un servicio
@@ -33,30 +33,33 @@ export const businessConfig = {
   // Duraciones dentro de los rangos reales que indicó el negocio:
   // depilación facial 10-20 min, depilación corporal 20-40 min,
   // lifting de pestañas / browlamination 60-80 min (1h a 1h20).
+  // "price" es el monto numérico en pesos chilenos (CLP), usado para cobrar
+  // el monto exacto por MercadoPago en el formulario de la web. "priceInfo"
+  // es solo el texto que se muestra — si cambias un precio, actualiza AMBOS.
   services: [
     // — Depilación facial (10 a 20 min) —
-    { name: "Perfilado de cejas", description: "Depilación facial.", priceInfo: "$10.000", durationMinutes: 15 },
-    { name: "Pigmento de cejas", description: "Depilación facial.", priceInfo: "$10.000", durationMinutes: 15 },
-    { name: "Cejas semipermanente + bozo", description: "Depilación facial.", priceInfo: "$15.000", durationMinutes: 20 },
-    { name: "Bozo", description: "Depilación facial.", priceInfo: "$3.000", durationMinutes: 10 },
-    { name: "Frente", description: "Depilación facial.", priceInfo: "$4.000", durationMinutes: 10 },
-    { name: "Barbilla", description: "Depilación facial.", priceInfo: "$4.000", durationMinutes: 10 },
-    { name: "Patillas", description: "Depilación facial.", priceInfo: "$4.000", durationMinutes: 10 },
-    { name: "Rostro completo", description: "Depilación facial.", priceInfo: "$23.990", durationMinutes: 20 },
+    { name: "Perfilado de cejas", description: "Depilación facial.", priceInfo: "$10.000", price: 10000, durationMinutes: 15 },
+    { name: "Pigmento de cejas", description: "Depilación facial.", priceInfo: "$10.000", price: 10000, durationMinutes: 15 },
+    { name: "Cejas semipermanente + bozo", description: "Depilación facial.", priceInfo: "$15.000", price: 15000, durationMinutes: 20 },
+    { name: "Bozo", description: "Depilación facial.", priceInfo: "$3.000", price: 3000, durationMinutes: 10 },
+    { name: "Frente", description: "Depilación facial.", priceInfo: "$5.000", price: 5000, durationMinutes: 10 },
+    { name: "Barbilla", description: "Depilación facial.", priceInfo: "$4.000", price: 4000, durationMinutes: 10 },
+    { name: "Patillas", description: "Depilación facial.", priceInfo: "$5.000", price: 5000, durationMinutes: 10 },
+    { name: "Rostro completo", description: "Depilación facial.", priceInfo: "$23.000", price: 23000, durationMinutes: 20 },
 
     // — Depilación corporal (20 a 40 min) —
-    { name: "Axilas", description: "Depilación corporal.", priceInfo: "$10.000", durationMinutes: 20 },
-    { name: "Brazos", description: "Depilación corporal.", priceInfo: "$13.000", durationMinutes: 25 },
-    { name: "Glúteos", description: "Depilación corporal.", priceInfo: "$12.000", durationMinutes: 20 },
-    { name: "Rebaje completo", description: "Depilación corporal.", priceInfo: "$20.000", durationMinutes: 30 },
-    { name: "Bikini", description: "Depilación corporal.", priceInfo: "$16.000", durationMinutes: 25 },
-    { name: "Media piernas", description: "Depilación corporal.", priceInfo: "$15.000", durationMinutes: 30 },
-    { name: "Piernas completas", description: "Depilación corporal.", priceInfo: "$22.000", durationMinutes: 40 },
-    { name: "Espalda baja", description: "Depilación corporal.", priceInfo: "$10.000", durationMinutes: 20 },
+    { name: "Axilas", description: "Depilación corporal.", priceInfo: "$10.000", price: 10000, durationMinutes: 20 },
+    { name: "Brazos", description: "Depilación corporal.", priceInfo: "$13.000", price: 13000, durationMinutes: 25 },
+    { name: "Glúteos", description: "Depilación corporal.", priceInfo: "$12.000", price: 12000, durationMinutes: 20 },
+    { name: "Rebaje completo", description: "Depilación corporal.", priceInfo: "$20.000", price: 20000, durationMinutes: 30 },
+    { name: "Bikini", description: "Depilación corporal.", priceInfo: "$16.000", price: 16000, durationMinutes: 25 },
+    { name: "Media piernas", description: "Depilación corporal.", priceInfo: "$15.000", price: 15000, durationMinutes: 30 },
+    { name: "Piernas completas", description: "Depilación corporal.", priceInfo: "$22.000", price: 22000, durationMinutes: 40 },
+    { name: "Espalda baja", description: "Depilación corporal.", priceInfo: "$10.000", price: 10000, durationMinutes: 20 },
 
     // — Lifting de pestañas / Browlamination (1h a 1h20) —
-    { name: "Lifting de pestañas", description: "Lifting de pestañas.", priceInfo: "$25.000", durationMinutes: 80 },
-    { name: "Browlamination", description: "Laminado de cejas.", priceInfo: "$21.000", durationMinutes: 70 },
+    { name: "Lifting de pestañas", description: "Lifting de pestañas.", priceInfo: "$28.000", price: 28000, durationMinutes: 80 },
+    { name: "Browlamination", description: "Laminado de cejas.", priceInfo: "$21.000", price: 21000, durationMinutes: 70 },
   ],
 
   // Preguntas frecuentes con sus respuestas — el bot las usa como base de
@@ -76,7 +79,7 @@ export const businessConfig = {
     },
     {
       question: "¿Qué días atienden?",
-      answer: "Por ahora atendemos jueves y domingo, según disponibilidad en el calendario.",
+      answer: "Atendemos de lunes a sábado, de 10:00 a 20:00. Domingo cerrado.",
     },
   ],
 

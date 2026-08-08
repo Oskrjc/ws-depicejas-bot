@@ -11,7 +11,7 @@ proyecto, y repetir el proceso en un proyecto futuro.
 - Sitio público: `https://depicejas.ooli.uk`
 - Panel de reservas: `https://depicejas.ooli.uk/admin` (con contraseña)
 - Repositorio: `github.com/Oskrjc/ws-depicejas-bot`
-- Hosting: Railway · DNS: Cloudflare
+- Hosting: Railway · DNS: Cloudflare · Pagos: MercadoPago (Checkout Pro)
 
 ---
 
@@ -505,6 +505,129 @@ Si algo sigue apareciendo viejo, Cloudflare puede estar cacheando:
 
 ---
 
+# FASE 9 — Pago online con MercadoPago
+
+El formulario de reservas dejó de ser "solo una solicitud": ahora el cliente
+elige pagar **el abono del 20% o el valor completo del servicio** al momento
+de reservar, antes de que Joselyn confirme el horario definitivo (el
+selector está en el propio formulario). El pago por WhatsApp (coordinado a
+mano) **no cambió** — esto es independiente y solo aplica al formulario de
+la web.
+
+## 9.1 Por qué Checkout Pro (y no manejar tarjetas nosotros)
+
+MercadoPago ofrece varias formas de integrarse. Se eligió **Checkout Pro**:
+el cliente se redirige a una página de pago hospedada por MercadoPago, paga
+ahí, y vuelve a nuestro sitio. Nuestro servidor nunca ve ni toca datos de
+tarjetas — MercadoPago se encarga de la seguridad (PCI compliance) por
+completo. La alternativa (Checkout API / "Bricks") deja el formulario de
+pago embebido en nuestro sitio, pero exige mucho más trabajo de seguridad
+para poco beneficio en un sitio de este tamaño.
+
+## 9.2 Crear la cuenta y sacar las credenciales
+
+1. Crea una cuenta en [mercadopago.cl](https://www.mercadopago.cl) (si el
+   negocio no tiene una todavía) — es la cuenta que va a recibir el dinero.
+2. Entra a [mercadopago.cl/developers/panel](https://www.mercadopago.cl/developers/panel/app) y crea una aplicación
+   ("Crear aplicación").
+3. Dentro de la app, ve a **Credenciales de producción** y copia el
+   **Access Token** (empieza con `APP_USR-...`). Este es el que cobra plata
+   de verdad — guárdalo con cuidado, nunca lo subas al repositorio.
+4. Para probar sin arriesgar dinero real, usa en cambio las
+   **Credenciales de prueba** (misma pantalla) — el Access Token empieza
+   con `TEST-...`. Con ese token, MercadoPago simula el pago sin cobrar nada.
+
+> ⚠️ **No hace falta activar cobros para probar.** Puedes desarrollar y
+> probar todo el flujo con el Access Token de prueba (`TEST-...`) antes de
+> siquiera pensar en activar cobros reales de la cuenta.
+
+## 9.3 Variables nuevas en `.env`
+
+```
+MERCADOPAGO_ACCESS_TOKEN=TEST-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx-xxxxxx
+BASE_URL=
+```
+
+- **`MERCADOPAGO_ACCESS_TOKEN`**: el token del paso anterior. Si lo dejas
+  vacío, el formulario de la web sigue funcionando pero responde con un
+  error claro ("el pago online todavía no está configurado") en vez de
+  romperse — así el resto del sitio no se ve afectado mientras configuras
+  esto con calma.
+- **`BASE_URL`**: la URL pública del sitio, **sin barra al final**. En local
+  puedes dejarla vacía (usa `http://localhost:3000` automáticamente). En
+  Railway, ponla como `https://depicejas.ooli.uk` — MercadoPago la necesita
+  para saber a dónde redirigir al cliente después de pagar, y a dónde
+  avisarnos del resultado (el webhook).
+
+## 9.4 Probar con una tarjeta de prueba
+
+Con el Access Token de prueba (`TEST-...`) configurado, MercadoPago te deja
+simular pagos con tarjetas de prueba oficiales — hay una lista completa en
+[el panel de credenciales de prueba](https://www.mercadopago.cl/developers/panel/app),
+sección "Cuentas y tarjetas de prueba". Como referencia, una tarjeta
+Mastercard de prueba típica es:
+
+```
+Número: 5031 7557 3453 0604
+Vencimiento: 11/30
+CVV: 123
+Nombre del titular: APRO (para que el pago se apruebe automáticamente)
+```
+
+> El nombre del titular controla el resultado: `APRO` aprueba el pago,
+> `OTHE` lo rechaza, etc. — útil para probar también el flujo de pago
+> fallido (`web/reserva-fallida.html`).
+
+## 9.5 Cómo funciona el flujo técnico
+
+```
+1. Cliente llena el formulario → POST /api/reservations
+2. El servidor guarda la reserva (estado "pending") y crea una
+   "preferencia" de pago en MercadoPago con el precio del servicio
+3. El servidor responde con la URL de checkout; el navegador redirige
+   al cliente a MercadoPago
+4. El cliente paga en la página de MercadoPago
+5. MercadoPago redirige al cliente de vuelta a una de las tres páginas
+   de resultado (reserva-exitosa.html / -pendiente.html / -fallida.html)
+6. EN PARALELO, MercadoPago llama a POST /api/payments/webhook —
+   esta es la fuente de verdad real, no la redirección del paso 5
+   (que puede perderse si el cliente cierra la pestaña antes de tiempo)
+7. El webhook consulta el estado real del pago, actualiza la reserva
+   en la base de datos, y si el pago fue aprobado, envía los correos
+   de confirmación (a Joselyn y al cliente)
+```
+
+> **Por qué el webhook y no solo la redirección:** la redirección al
+> navegador del cliente (paso 5) no es confiable — el cliente puede cerrar
+> la pestaña, perder conexión, o el navegador puede bloquear la vuelta.
+> El webhook (paso 6) es una llamada servidor-a-servidor de MercadoPago
+> directamente a Railway, así que no depende de que el cliente haga nada.
+
+## 9.6 Desplegar a producción
+
+En Railway, agrega las dos variables nuevas en **Variables**:
+
+```
+MERCADOPAGO_ACCESS_TOKEN=APP_USR-...   ← el de producción, cuando estés lista para cobrar de verdad
+BASE_URL=https://depicejas.ooli.uk
+```
+
+No hace falta registrar manualmente la URL del webhook en ningún panel de
+MercadoPago — se manda automáticamente en cada preferencia de pago que crea
+el servidor (`notification_url`), apuntando a `BASE_URL` + `/api/payments/webhook`.
+
+Checklist de verificación:
+- [ ] Con el token de prueba, hacer una reserva de prueba y pagar con la
+  tarjeta `APRO` → debe llegar a `reserva-exitosa.html` y, unos segundos
+  después, llegar el correo de "pago recibido"
+- [ ] La reserva de prueba aparece en `/admin` con el badge verde "Pagado"
+- [ ] Probar también un pago rechazado (tarjeta `OTHE`) → debe llegar a
+  `reserva-fallida.html`
+- [ ] Cuando el negocio esté listo para cobrar de verdad, cambiar
+  `MERCADOPAGO_ACCESS_TOKEN` al de producción (`APP_USR-...`)
+
+---
+
 # ANEXO A — Errores encontrados y cómo se resolvieron
 
 | Problema | Causa | Solución |
@@ -528,6 +651,7 @@ Si algo sigue apareciendo viejo, Cloudflare puede estar cacheando:
 | **Dominio `ooli.uk`** | Ya registrado | Vence Jul 2027, renovación automática activa |
 | **Gmail (correos)** | Gratis | Dentro de los límites normales de envío |
 | **Claude API** (bot) | Por uso | Solo si activas el bot de WhatsApp |
+| **MercadoPago** | Comisión por venta | Cobra un % del monto de cada pago aprobado (varía según medio de pago) — se descuenta automáticamente, no hay costo fijo mensual |
 
 ---
 
@@ -542,13 +666,17 @@ src/
   claude.ts             # lógica del bot + herramientas
   conversationStore.ts  # historial de conversación en memoria
   reminders.ts          # cron job de recordatorios
-  reservationsDb.ts     # base de datos SQLite de reservas web
+  reservationsDb.ts     # base de datos SQLite de reservas web + pagos
   mailer.ts             # envío de correos (Gmail)
-  server.ts             # Express: webhook + API + sitio estático + /admin
+  mercadopago.ts        # integración de pagos (Checkout Pro)
+  server.ts             # Express: webhook + API + pagos + sitio estático + /admin
 
 web/                    # sitio público
   index.html
   sobre-mi.html
+  reserva-exitosa.html    # resultado del pago (redirección de MercadoPago)
+  reserva-pendiente.html
+  reserva-fallida.html
   styles.css
   script.js
   images/
@@ -567,6 +695,10 @@ admin/                  # panel de reservas (protegido con contraseña)
   de WhatsApp Business API en Meta y la cuenta de servicio de Google
   Calendar (ver secciones 1 y 2 del `README.md`). Al activarlo, el Callback
   URL del webhook debe ser `https://depicejas.ooli.uk/webhook`.
+- **MercadoPago:** el código está listo (ver FASE 9) pero falta crear la
+  cuenta y configurar `MERCADOPAGO_ACCESS_TOKEN` y `BASE_URL`. Mientras no
+  esté configurado, el formulario de reservas responde con un error claro
+  en vez de romperse.
 - **Dominio con el nombre del negocio:** hoy es `depicejas.ooli.uk`. Comprar
   `depicejascl.com` (~US$11/año) daría una imagen más profesional. Se puede
   agregar sin rehacer nada — solo un "+ Custom Domain" más.

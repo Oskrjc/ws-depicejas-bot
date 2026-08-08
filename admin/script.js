@@ -12,6 +12,33 @@ function escapeHtml(str) {
   return div.innerHTML;
 }
 
+const PAYMENT_LABELS = {
+  approved: "Pagado",
+  pending: "Pendiente",
+  in_process: "En proceso",
+  rejected: "Rechazado",
+  cancelled: "Cancelado",
+  refunded: "Reembolsado",
+  charged_back: "Contracargo",
+};
+
+function formatClp(amount) {
+  if (amount == null) return "—";
+  return "$" + Number(amount).toLocaleString("es-CL");
+}
+
+const PAYMENT_OPTION_LABELS = {
+  deposit: "Abono 20%",
+  full: "Pago completo",
+};
+
+function paymentBadge(r) {
+  const status = r.paymentStatus || "pending";
+  const label = PAYMENT_LABELS[status] || status;
+  const optionLabel = PAYMENT_OPTION_LABELS[r.paymentOption] || "";
+  return `<span class="payment-badge payment-badge-${escapeHtml(status)}">${escapeHtml(label)}</span><br><small>${formatClp(r.price)}${optionLabel ? " · " + escapeHtml(optionLabel) : ""}</small>`;
+}
+
 async function loadReservations() {
   statusEl.textContent = "Cargando...";
   bodyEl.innerHTML = "";
@@ -40,6 +67,7 @@ async function loadReservations() {
         <td>${escapeHtml(r.preferredDate)}</td>
         <td>${escapeHtml(r.preferredTime)}</td>
         <td class="notes-cell">${escapeHtml(r.notes || "—")}</td>
+        <td>${paymentBadge(r)}</td>
         <td><input type="checkbox" data-id="${r.id}" class="contacted-checkbox" ${r.contacted ? "checked" : ""} /></td>
         <td><button type="button" class="icon-btn delete-btn" data-id="${r.id}" title="Eliminar">🗑️</button></td>
       `;

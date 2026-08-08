@@ -31,7 +31,11 @@
       "Bash(gh auth *)",
       "Bash(git --version)",
       "Bash(where git *)",
-      "Bash(which node *)"
+      "Bash(which node *)",
+      "Bash(curl -s http://localhost:3000/health)",
+      "Bash(powershell.exe -Command 'Stop-Process -Id __TRACKED_VAR__ -Force -ErrorAction SilentlyContinue')",
+      "Bash(rm -f profiletest.out.log profiletest.err.log profiletest.pid)",
+      "mcp__visualize__read_me"
     ]
   }
 }

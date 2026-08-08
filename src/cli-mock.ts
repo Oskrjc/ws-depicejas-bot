@@ -77,7 +77,7 @@ function respond(text: string): string {
     if (svc) {
       state.service = svc;
       state.step = "date";
-      return `¡Perfecto, ${svc}! ¿Qué día te gustaría? Recuerda que atendemos jueves y domingo.`;
+      return `¡Perfecto, ${svc}! ¿Qué día te gustaría? Atendemos de lunes a sábado, de 10:00 a 20:00.`;
     }
     return `No reconocí ese servicio exacto. Algunos disponibles:\n${listServices()}\n\n¿Cuál te interesa?`;
   }
