@@ -69,10 +69,13 @@ export async function createPaymentPreference(
     },
   });
 
-  // sandbox_init_point viene presente en algunas cuentas/credenciales de
-  // prueba; si no viene, init_point sirve igual (el formato del Access
-  // Token de prueba puede variar según la cuenta — no asumas el prefijo).
-  const checkoutUrl = result.sandbox_init_point || result.init_point;
+  // init_point es SIEMPRE la URL de checkout correcta según el tipo de
+  // credencial usada (prueba o producción) — hay que priorizarla. Antes este
+  // código prefería sandbox_init_point si venía presente, lo cual mandaba a
+  // los clientes al ambiente de prueba incluso usando el Access Token de
+  // producción real. sandbox_init_point queda solo como respaldo por si
+  // alguna vez init_point no viniera en la respuesta.
+  const checkoutUrl = result.init_point || result.sandbox_init_point;
 
   if (!result.id || !checkoutUrl) {
     throw new Error("MercadoPago no devolvió una preferencia de pago válida.");
