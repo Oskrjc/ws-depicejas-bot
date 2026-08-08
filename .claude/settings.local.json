@@ -35,7 +35,8 @@
       "Bash(curl -s http://localhost:3000/health)",
       "Bash(powershell.exe -Command 'Stop-Process -Id __TRACKED_VAR__ -Force -ErrorAction SilentlyContinue')",
       "Bash(rm -f profiletest.out.log profiletest.err.log profiletest.pid)",
-      "mcp__visualize__read_me"
+      "mcp__visualize__read_me",
+      "PowerShell(Invoke-WebRequest -Uri http://localhost:3000/health -UseBasicParsing)"
     ]
   }
 }

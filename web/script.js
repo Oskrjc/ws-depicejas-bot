@@ -1,5 +1,21 @@
 document.getElementById("year").textContent = new Date().getFullYear();
 
+const navToggle = document.getElementById("navToggle");
+const siteNav = document.querySelector(".nav");
+if (navToggle && siteNav) {
+  const closeNav = () => {
+    siteNav.classList.remove("open");
+    navToggle.classList.remove("open");
+    navToggle.setAttribute("aria-expanded", "false");
+  };
+  navToggle.addEventListener("click", () => {
+    const isOpen = siteNav.classList.toggle("open");
+    navToggle.classList.toggle("open", isOpen);
+    navToggle.setAttribute("aria-expanded", String(isOpen));
+  });
+  siteNav.querySelectorAll("a").forEach((link) => link.addEventListener("click", closeNav));
+}
+
 const carouselTrack = document.getElementById("carouselTrack");
 if (carouselTrack) {
   const scrollAmount = () => carouselTrack.querySelector(".carousel-slide").offsetWidth + 16;
