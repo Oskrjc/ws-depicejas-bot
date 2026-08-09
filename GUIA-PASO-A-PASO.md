@@ -628,6 +628,81 @@ Checklist de verificación:
 
 ---
 
+# FASE 10 — Horarios disponibles (agenda real)
+
+Hasta acá, "Fecha preferida" y "Hora preferida" eran texto libre: la clienta
+podía escribir cualquier cosa, y dos personas podían "reservar" la misma
+hora sin que el sistema se diera cuenta. Esta fase reemplaza eso por una
+agenda real: **solo se puede reservar un horario que Joselyn (o Oscar) haya
+abierto a mano desde el panel**.
+
+## 10.1 Cómo se usa (día a día)
+
+1. Entra a `depicejas.cl/admin` con el mismo usuario/contraseña de siempre
+   (`ADMIN_USERNAME` / `ADMIN_PASSWORD` — no hay una cuenta separada por
+   persona, ambas comparten el mismo login).
+2. Arriba de la tabla de reservas está la sección **"Horarios disponibles"**:
+   elige una fecha, escribe las horas separadas por coma
+   (ej. `10:00, 10:30, 11:00, 11:30`) y clic en **Agregar**.
+3. La tabla de abajo muestra cada horario como **Disponible** (con botón
+   🗑️ para quitarlo) o **Reservado — [nombre de la clienta]** (no se puede
+   borrar directo; ver 10.3).
+4. En el formulario público, "Fecha" y "Hora" ahora son listas desplegables
+   que solo muestran lo que quedó abierto en el paso 2. Si no hay nada
+   cargado, se muestra el mensaje "No hay horarios disponibles por ahora."
+
+> ⚠️ Si no cargan horarios, el formulario de reservas queda vacío y nadie
+> puede reservar por la web — conviene dejar cargada al menos la semana
+> siguiente con anticipación.
+
+## 10.2 Piezas nuevas
+
+**`src/db.ts`** — conexión única a SQLite, compartida por
+`reservationsDb.ts` y el nuevo `slotsDb.ts` (antes cada archivo abría su
+propia conexión al mismo archivo).
+
+**`src/slotsDb.ts`** — tabla `slots` (`date`, `time`, `status`
+`available`/`booked`, `reservation_id`). Funciones clave:
+
+- `createSlots(date, times[])` — crea varias horas de una fecha de una vez.
+- `listAvailableSlots()` — horarios disponibles a futuro (usado por el
+  formulario público).
+- `bookSlot(date, time, reservationId)` — marca un horario como reservado
+  de forma **atómica**: si dos clientas llegan casi al mismo tiempo, la
+  segunda consulta simplemente no encuentra el horario libre.
+- `freeSlotByReservationId(id)` — libera un horario (pago rechazado/
+  cancelado, o la reserva se borró desde el panel).
+
+**Rutas nuevas en `src/server.ts`:**
+
+```
+GET    /api/slots               → horarios disponibles (público, sin login)
+GET    /admin/api/slots         → todos los horarios (protegido)
+POST   /admin/api/slots         → { date, times: [...] } crea horarios (protegido)
+DELETE /admin/api/slots/:id     → elimina un horario disponible (protegido)
+```
+
+`POST /api/reservations` ahora también intenta reservar el horario elegido;
+si ya no está disponible, responde `409` con un mensaje claro en vez de
+guardar una reserva duplicada para la misma hora.
+
+## 10.3 Por qué no se puede borrar un horario ya reservado
+
+Si se pudiera eliminar un horario "Reservado" directamente, se perdería el
+vínculo con esa reserva sin avisar a nadie. En cambio, el flujo correcto es:
+
+1. Elimina la reserva desde la tabla de "Reservas" (como siempre).
+2. Eso libera automáticamente el horario, que vuelve a aparecer como
+   "Disponible".
+3. Si además no quieres que esa hora se pueda volver a tomar, bórrala desde
+   "Horarios disponibles".
+
+Lo mismo pasa automáticamente si un pago queda **rechazado** o
+**cancelado**: el webhook de MercadoPago libera el horario sin que nadie
+tenga que hacer nada a mano.
+
+---
+
 # ANEXO A — Errores encontrados y cómo se resolvieron
 
 | Problema | Causa | Solución |
@@ -639,6 +714,7 @@ Checklist de verificación:
 | Fotos rotas en producción | Carpeta `Images` vs código `images` | Linux distingue mayúsculas — unificar el casing |
 | Variables de Railway con nombres raros | Traductor de Chrome activo | Desactivar traducción de la página |
 | Botón "Custom Domain" deshabilitado | Límite de 1 dominio en plan de prueba | Borrar el dominio anterior o subir de plan |
+| `Invoke-WebRequest -Method DELETE` con `-Headers` responde 401 aunque la clave sea correcta | Quirk de PowerShell 5.1: no siempre manda el header `Authorization` en verbos como `DELETE` | Probar con `curl -X DELETE -u usuario:clave` en vez de `Invoke-WebRequest` para descartar que sea un bug real |
 
 ---
 
@@ -666,7 +742,9 @@ src/
   claude.ts             # lógica del bot + herramientas
   conversationStore.ts  # historial de conversación en memoria
   reminders.ts          # cron job de recordatorios
+  db.ts                 # conexión SQLite compartida
   reservationsDb.ts     # base de datos SQLite de reservas web + pagos
+  slotsDb.ts            # horarios disponibles/reservados (agenda)
   mailer.ts             # envío de correos (Gmail)
   mercadopago.ts        # integración de pagos (Checkout Pro)
   server.ts             # Express: webhook + API + pagos + sitio estático + /admin
