@@ -54,6 +54,45 @@ body {
 
 .status { color: var(--ink-soft); min-height: 1.2em; }
 
+.slots-section { margin-bottom: 36px; }
+.slots-section h2, .reservations-section h2 { margin: 0 0 4px; font-size: 1.1rem; }
+.section-hint { color: var(--ink-soft); font-size: 0.85rem; margin: 0 0 16px; }
+.section-header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  margin-bottom: 4px;
+}
+
+.add-slot-form {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: end;
+  gap: 12px;
+  margin-bottom: 16px;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 16px;
+}
+.add-slot-form label {
+  display: block;
+  font-size: 0.8rem;
+  color: var(--ink-soft);
+  margin-bottom: 4px;
+}
+.add-slot-form input {
+  font-family: inherit;
+  font-size: 0.9rem;
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg);
+  color: var(--ink);
+}
+.add-slot-times { flex: 1; min-width: 220px; }
+.add-slot-times input { width: 100%; }
+
 .table-wrap {
   overflow-x: auto;
   background: var(--card);

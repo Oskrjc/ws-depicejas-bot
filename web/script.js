@@ -37,6 +37,70 @@ if (reservationForm) {
   const servicesEmptyHint = document.getElementById("servicesEmptyHint");
   const depositAmountEl = document.getElementById("depositAmount");
   const fullAmountEl = document.getElementById("fullAmount");
+  const dateSelect = document.getElementById("res-date");
+  const timeSelect = document.getElementById("res-time");
+  const slotsEmptyHint = document.getElementById("slotsEmptyHint");
+
+  // Horarios disponibles cargados desde /api/slots, agrupados por fecha:
+  // { "2026-08-20": ["10:00", "10:30", ...], ... }
+  let slotsByDate = {};
+
+  function formatDateLabel(dateStr) {
+    const d = new Date(dateStr + "T00:00:00");
+    if (isNaN(d.getTime())) return dateStr;
+    const label = d.toLocaleDateString("es-CL", { weekday: "long", day: "numeric", month: "long" });
+    return label.charAt(0).toUpperCase() + label.slice(1);
+  }
+
+  function populateTimeOptions(date) {
+    const times = slotsByDate[date] || [];
+    timeSelect.innerHTML = "";
+    if (times.length === 0) {
+      timeSelect.innerHTML = '<option value="">Sin horas disponibles</option>';
+      timeSelect.disabled = true;
+      return;
+    }
+    timeSelect.innerHTML = '<option value="">Elige una hora</option>' + times.map((t) => `<option value="${t}">${t}</option>`).join("");
+    timeSelect.disabled = false;
+  }
+
+  async function loadAvailableSlots() {
+    try {
+      const res = await fetch("/api/slots");
+      if (!res.ok) throw new Error();
+      const slots = await res.json();
+
+      slotsByDate = {};
+      for (const s of slots) {
+        (slotsByDate[s.date] = slotsByDate[s.date] || []).push(s.time);
+      }
+      const dates = Object.keys(slotsByDate).sort();
+
+      if (dates.length === 0) {
+        dateSelect.innerHTML = '<option value="">No hay fechas disponibles</option>';
+        dateSelect.disabled = true;
+        timeSelect.innerHTML = '<option value="">—</option>';
+        timeSelect.disabled = true;
+        slotsEmptyHint.classList.add("visible");
+        return;
+      }
+
+      slotsEmptyHint.classList.remove("visible");
+      dateSelect.innerHTML =
+        '<option value="">Elige una fecha</option>' +
+        dates.map((d) => `<option value="${d}">${formatDateLabel(d)}</option>`).join("");
+      dateSelect.disabled = false;
+      timeSelect.innerHTML = '<option value="">Elige una fecha primero</option>';
+      timeSelect.disabled = true;
+    } catch {
+      dateSelect.innerHTML = '<option value="">No se pudieron cargar los horarios</option>';
+      dateSelect.disabled = true;
+      slotsEmptyHint.classList.add("visible");
+    }
+  }
+
+  dateSelect.addEventListener("change", () => populateTimeOptions(dateSelect.value));
+  loadAvailableSlots();
 
   function formatClp(amount) {
     return "$" + amount.toLocaleString("es-CL");
@@ -74,6 +138,13 @@ if (reservationForm) {
       return;
     }
 
+    if (!dateSelect.value || !timeSelect.value) {
+      messageEl.textContent = "Elige una fecha y una hora disponibles.";
+      messageEl.className = "form-message error";
+      dateSelect.scrollIntoView({ behavior: "smooth", block: "center" });
+      return;
+    }
+
     submitBtn.disabled = true;
     submitBtn.textContent = "Enviando...";
 
@@ -107,6 +178,9 @@ if (reservationForm) {
     } catch (err) {
       messageEl.textContent = err.message || "Ocurrió un error. Intenta de nuevo o escríbenos por WhatsApp.";
       messageEl.className = "form-message error";
+      // Si el horario ya no estaba disponible (otra clienta se lo llevó
+      // justo antes), refrescamos la lista para que no siga apareciendo.
+      loadAvailableSlots();
     } finally {
       submitBtn.disabled = false;
       submitBtn.textContent = "IR A PAGAR";

@@ -16,6 +16,14 @@ import {
 } from "./reservationsDb";
 import { sendPaymentConfirmedEmails } from "./mailer";
 import { isMercadoPagoConfigured, createPaymentPreference, getPayment } from "./mercadopago";
+import {
+  listAvailableSlots,
+  listAllSlots,
+  createSlots,
+  deleteAvailableSlot,
+  bookSlot,
+  freeSlotByReservationId,
+} from "./slotsDb";
 
 assertServerConfig();
 
@@ -95,6 +103,11 @@ app.get("/health", (_req, res) => {
   res.json({ status: "ok" });
 });
 
+// ── Horarios disponibles para reservar (elegidos por Joselyn/Oscar desde /admin) ──
+app.get("/api/slots", (_req, res) => {
+  res.json(listAvailableSlots());
+});
+
 // Porcentaje del abono cuando el cliente elige pagar solo una parte al
 // reservar (el resto se paga presencial). Si cambia este número, actualiza
 // también las menciones de "20%" en businessConfig.ts y web/index.html.
@@ -149,8 +162,9 @@ app.post("/api/reservations", async (req, res) => {
   const priceToCharge = paymentOption === "deposit" ? Math.round(fullPrice * DEPOSIT_PERCENTAGE) : fullPrice;
   const serviceLabel = confirmedServices.map((s) => s.name).join(", ");
 
+  let reservation;
   try {
-    const reservation = saveReservation({
+    reservation = saveReservation({
       name,
       email,
       phone: typeof phone === "string" ? phone : undefined,
@@ -163,12 +177,25 @@ app.post("/api/reservations", async (req, res) => {
       paymentOption,
     });
 
+    // Reserva el horario de forma atómica: si ya no está disponible (otra
+    // clienta lo tomó justo antes), deshacemos la reserva recién creada y
+    // avisamos en vez de dejar dos reservas para la misma hora.
+    const slotBooked = bookSlot(preferredDate, preferredTime, reservation.id);
+    if (!slotBooked) {
+      deleteReservation(reservation.id);
+      res.status(409).json({ error: "Ese horario ya no está disponible. Por favor elige otro." });
+      return;
+    }
+
     const { preferenceId, checkoutUrl } = await createPaymentPreference(reservation, priceToCharge, rut.trim());
     setReservationPreferenceId(reservation.id, preferenceId);
 
     res.status(201).json({ ok: true, checkoutUrl });
   } catch (err) {
     console.error("Error procesando reserva:", err);
+    // Si la reserva alcanzó a crearse pero algo falló después (ej. MercadoPago),
+    // liberamos el horario para que no quede bloqueado sin una reserva válida.
+    if (reservation) freeSlotByReservationId(reservation.id);
     res.status(500).json({ error: "No se pudo procesar la reserva. Intenta de nuevo o escríbenos por WhatsApp." });
   }
 });
@@ -208,6 +235,13 @@ async function handlePaymentWebhook(req: Request, res: Response): Promise<void> 
     if (updated && payment.status === "approved" && !wasAlreadyApproved) {
       await sendPaymentConfirmedEmails(updated);
     }
+
+    // Si el pago quedó rechazado o cancelado, liberamos el horario para que
+    // otra clienta pueda tomarlo — de lo contrario quedaría bloqueado para
+    // siempre por una reserva que nunca se pagó.
+    if (payment.status === "rejected" || payment.status === "cancelled") {
+      freeSlotByReservationId(reservation.id);
+    }
   } catch (err) {
     console.error("Error procesando webhook de MercadoPago:", err);
   }
@@ -235,9 +269,61 @@ app.patch("/admin/api/reservations/:id/contacted", requireAdminAuth, (req, res) 
 
 app.delete("/admin/api/reservations/:id", requireAdminAuth, (req, res) => {
   const id = Number(req.params.id);
+  // Libera el horario ligado a esta reserva antes de borrarla, para que
+  // vuelva a aparecer como disponible en vez de quedar bloqueado sin dueño.
+  freeSlotByReservationId(id);
   const deleted = deleteReservation(id);
   if (!deleted) {
     res.status(404).json({ error: "Reserva no encontrada." });
+    return;
+  }
+  res.status(204).send();
+});
+
+// ── Horarios disponibles (creados/eliminados por Joselyn u Oscar desde /admin) ──
+const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
+const TIME_RE = /^([01]\d|2[0-3]):[0-5]\d$/;
+
+app.get("/admin/api/slots", requireAdminAuth, (_req, res) => {
+  res.json(listAllSlots());
+});
+
+app.post("/admin/api/slots", requireAdminAuth, (req, res) => {
+  const { date, time, times } = req.body || {};
+
+  if (!date || typeof date !== "string" || !DATE_RE.test(date)) {
+    res.status(400).json({ error: "Fecha inválida (formato esperado: AAAA-MM-DD)." });
+    return;
+  }
+
+  const rawTimes: unknown[] = Array.isArray(times) ? times : typeof time === "string" ? [time] : [];
+  const cleanTimes = rawTimes
+    .filter((t): t is string => typeof t === "string")
+    .map((t) => t.trim())
+    .filter(Boolean);
+
+  if (cleanTimes.length === 0) {
+    res.status(400).json({ error: "Agrega al menos una hora." });
+    return;
+  }
+
+  const invalidTime = cleanTimes.find((t) => !TIME_RE.test(t));
+  if (invalidTime) {
+    res.status(400).json({ error: `Hora inválida: "${invalidTime}" (formato esperado: HH:MM).` });
+    return;
+  }
+
+  const slots = createSlots(date, cleanTimes);
+  res.status(201).json(slots);
+});
+
+app.delete("/admin/api/slots/:id", requireAdminAuth, (req, res) => {
+  const id = Number(req.params.id);
+  const deleted = deleteAvailableSlot(id);
+  if (!deleted) {
+    res.status(409).json({
+      error: "No se pudo eliminar: el horario no existe o ya está reservado (elimina la reserva primero).",
+    });
     return;
   }
   res.status(204).send();

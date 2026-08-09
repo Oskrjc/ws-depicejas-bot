@@ -226,14 +226,19 @@
 
         <div class="form-row form-row-split">
           <div>
-            <label for="res-date">Fecha preferida</label>
-            <input type="date" id="res-date" name="preferredDate" required />
+            <label for="res-date">Fecha</label>
+            <select id="res-date" name="preferredDate" required disabled>
+              <option value="">Cargando horarios…</option>
+            </select>
           </div>
           <div>
-            <label for="res-time">Hora preferida</label>
-            <input type="time" id="res-time" name="preferredTime" required />
+            <label for="res-time">Hora</label>
+            <select id="res-time" name="preferredTime" required disabled>
+              <option value="">Elige una fecha primero</option>
+            </select>
           </div>
         </div>
+        <p class="services-empty-hint" id="slotsEmptyHint">No hay horarios disponibles por ahora. Escríbenos por WhatsApp y coordinamos directamente.</p>
 
         <div class="form-row">
           <label for="res-notes">Notas (opcional)</label>

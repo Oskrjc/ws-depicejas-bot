@@ -101,3 +101,92 @@ async function loadReservations() {
 
 document.getElementById("refreshBtn").addEventListener("click", loadReservations);
 loadReservations();
+
+// ── Horarios disponibles ───────────────────────────────────────────────────
+const slotsStatusEl = document.getElementById("slotsStatus");
+const slotsBodyEl = document.getElementById("slotsBody");
+
+const SLOT_STATUS_LABELS = {
+  available: "Disponible",
+  booked: "Reservado",
+};
+
+async function loadSlots() {
+  slotsStatusEl.textContent = "Cargando...";
+  slotsBodyEl.innerHTML = "";
+
+  try {
+    const res = await fetch("/admin/api/slots");
+    if (!res.ok) throw new Error("No se pudo cargar los horarios (" + res.status + ")");
+    const slots = await res.json();
+
+    if (slots.length === 0) {
+      slotsStatusEl.textContent = "No hay horarios cargados todavía.";
+      return;
+    }
+
+    slotsStatusEl.textContent = slots.length + " horario(s).";
+
+    for (const s of slots) {
+      const isBooked = s.status === "booked";
+      const badgeClass = isBooked ? "payment-badge-rejected" : "payment-badge-approved";
+      const label = SLOT_STATUS_LABELS[s.status] || s.status;
+      const withName = isBooked && s.reservationName ? `${label} — ${escapeHtml(s.reservationName)}` : label;
+
+      const tr = document.createElement("tr");
+      tr.innerHTML = `
+        <td>${escapeHtml(s.date)}</td>
+        <td>${escapeHtml(s.time)}</td>
+        <td><span class="payment-badge ${badgeClass}">${withName}</span></td>
+        <td>${isBooked ? "" : `<button type="button" class="icon-btn delete-slot-btn" data-id="${s.id}" title="Eliminar">🗑️</button>`}</td>
+      `;
+      slotsBodyEl.appendChild(tr);
+    }
+
+    slotsBodyEl.querySelectorAll(".delete-slot-btn").forEach((btn) => {
+      btn.addEventListener("click", async (e) => {
+        const id = e.target.getAttribute("data-id");
+        if (!confirm("¿Eliminar este horario disponible?")) return;
+        const res = await fetch(`/admin/api/slots/${id}`, { method: "DELETE" });
+        if (res.ok) {
+          e.target.closest("tr").remove();
+        } else {
+          const data = await res.json().catch(() => ({}));
+          alert(data.error || "No se pudo eliminar el horario.");
+        }
+      });
+    });
+  } catch (err) {
+    slotsStatusEl.textContent = err.message || "Ocurrió un error al cargar los horarios.";
+  }
+}
+
+document.getElementById("addSlotForm").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const dateInput = document.getElementById("slotDate");
+  const timesInput = document.getElementById("slotTimes");
+
+  const date = dateInput.value;
+  const times = timesInput.value
+    .split(",")
+    .map((t) => t.trim())
+    .filter(Boolean);
+
+  if (!date || times.length === 0) return;
+
+  const res = await fetch("/admin/api/slots", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ date, times }),
+  });
+
+  if (res.ok) {
+    timesInput.value = "";
+    loadSlots();
+  } else {
+    const data = await res.json().catch(() => ({}));
+    alert(data.error || "No se pudo agregar el horario.");
+  }
+});
+
+loadSlots();

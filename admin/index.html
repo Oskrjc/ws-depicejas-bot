@@ -9,34 +9,69 @@
 <body>
 
 <header class="admin-header">
-  <h1>Reservas — Depicejas Beyond Beauty</h1>
-  <button id="refreshBtn" type="button" class="btn">Actualizar</button>
+  <h1>Depicejas Beyond Beauty — Panel</h1>
 </header>
 
 <main class="container">
-  <p id="status" class="status"></p>
+  <section class="slots-section">
+    <h2>Horarios disponibles</h2>
+    <p class="section-hint">Agrega los días y horas en que Joselyn atiende — solo esos horarios se pueden reservar desde la web.</p>
+    <form id="addSlotForm" class="add-slot-form">
+      <div>
+        <label for="slotDate">Fecha</label>
+        <input type="date" id="slotDate" required />
+      </div>
+      <div class="add-slot-times">
+        <label for="slotTimes">Horas (separadas por coma)</label>
+        <input type="text" id="slotTimes" placeholder="10:00, 10:30, 11:00, 11:30" required />
+      </div>
+      <button type="submit" class="btn">Agregar</button>
+    </form>
+    <p id="slotsStatus" class="status"></p>
+    <div class="table-wrap">
+      <table id="slotsTable">
+        <thead>
+          <tr>
+            <th>Fecha</th>
+            <th>Hora</th>
+            <th>Estado</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody id="slotsBody"></tbody>
+      </table>
+    </div>
+  </section>
 
-  <div class="table-wrap">
-    <table id="reservationsTable">
-      <thead>
-        <tr>
-          <th>Creada</th>
-          <th>Cliente</th>
-          <th>Correo</th>
-          <th>Teléfono</th>
-          <th>Servicio</th>
-          <th>Fecha pref.</th>
-          <th>Hora pref.</th>
-          <th>Notas</th>
-          <th>Pago</th>
-          <th>Contactada</th>
-          <th></th>
-        </tr>
-      </thead>
-      <tbody id="reservationsBody">
-      </tbody>
-    </table>
-  </div>
+  <section class="reservations-section">
+    <div class="section-header">
+      <h2>Reservas</h2>
+      <button id="refreshBtn" type="button" class="btn">Actualizar</button>
+    </div>
+    <p id="status" class="status"></p>
+
+    <div class="table-wrap">
+      <table id="reservationsTable">
+        <thead>
+          <tr>
+            <th>Creada</th>
+            <th>Cliente</th>
+            <th>Correo</th>
+            <th>Teléfono</th>
+            <th>Servicio</th>
+            <th>Fecha pref.</th>
+            <th>Hora pref.</th>
+            <th>Notas</th>
+            <th>Pago</th>
+            <th>Contactada</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody id="reservationsBody">
+        </tbody>
+      </table>
+    </div>
+  </section>
 </main>
 
 <script src="/admin/script.js"></script>

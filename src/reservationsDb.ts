@@ -1,7 +1,4 @@
-import Database from "better-sqlite3";
-import fs from "fs";
-import path from "path";
-import { config } from "./config";
+import { db } from "./db";
 
 // Espejo del campo "status" de MercadoPago — se guarda tal cual viene
 // (valores típicos: pending, approved, in_process, rejected, cancelled,
@@ -47,10 +44,6 @@ export interface NewReservation {
   fullPrice?: number;
   paymentOption?: PaymentOption;
 }
-
-fs.mkdirSync(path.dirname(config.reservationsDbPath), { recursive: true });
-
-const db = new Database(config.reservationsDbPath);
 
 db.exec(`
   CREATE TABLE IF NOT EXISTS reservations (
