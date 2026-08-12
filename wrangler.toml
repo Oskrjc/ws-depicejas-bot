@@ -17,3 +17,7 @@ run_worker_first = true
 binding = "DB"
 database_name = "depicejas-db"
 database_id = "a6c52634-dc32-4b2c-8e9f-8139371e5eaf"
+
+[[routes]]
+pattern = "depicejas.cl"
+custom_domain = true
