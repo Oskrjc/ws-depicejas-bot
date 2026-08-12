@@ -32,6 +32,15 @@ const PAYMENT_OPTION_LABELS = {
   full: "Pago completo",
 };
 
+/** Link de WhatsApp con el mensaje de confirmación ya redactado (mismo criterio que src/mailer.ts). */
+function whatsappConfirmLink(r) {
+  if (!r.phone) return null;
+  const digits = r.phone.replace(/\D/g, "");
+  if (!digits) return null;
+  const message = `Hola ${r.name}, tu cita de ${r.service} quedó confirmada para el ${r.preferredDate} a las ${r.preferredTime}. ¡Te esperamos!`;
+  return `https://wa.me/${digits}?text=${encodeURIComponent(message)}`;
+}
+
 function paymentBadge(r) {
   const status = r.paymentStatus || "pending";
   const label = PAYMENT_LABELS[status] || status;
@@ -70,7 +79,11 @@ async function loadReservations() {
         <td>${paymentBadge(r)}</td>
         <td><input type="checkbox" data-id="${r.id}" class="contacted-checkbox" ${r.contacted ? "checked" : ""} /></td>
         <td>
-          ${r.paymentStatus === "approved" ? `<button type="button" class="icon-btn resend-email-btn" data-id="${r.id}" title="Reenviar correo de confirmación">✉️</button>` : ""}
+          ${
+            r.paymentStatus === "approved"
+              ? `${whatsappConfirmLink(r) ? `<a class="icon-btn" href="${whatsappConfirmLink(r)}" target="_blank" rel="noopener" title="Confirmar por WhatsApp">💬</a>` : ""}<button type="button" class="icon-btn resend-email-btn" data-id="${r.id}" title="Reenviar correo de confirmación">✉️</button>`
+              : ""
+          }
           <button type="button" class="icon-btn delete-btn" data-id="${r.id}" title="Eliminar">🗑️</button>
         </td>
       `;

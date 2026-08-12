@@ -26,6 +26,20 @@ function paymentSummaryLine(reservation: Reservation): string {
     : "Abono 20%";
 }
 
+/**
+ * Link de WhatsApp con el mensaje de confirmación ya redactado — Joselyn
+ * solo tiene que abrirlo y darle enviar. No requiere la API de WhatsApp
+ * Business (que todavía no está activada), es solo un link `wa.me`.
+ */
+function buildWhatsappConfirmLink(reservation: Reservation): string | null {
+  if (!reservation.phone) return null;
+  const digits = reservation.phone.replace(/\D/g, "");
+  if (!digits) return null;
+
+  const message = `Hola ${reservation.name}, tu cita de ${reservation.service} quedó confirmada para el ${reservation.preferredDate} a las ${reservation.preferredTime}. ¡Te esperamos!`;
+  return `https://wa.me/${digits}?text=${encodeURIComponent(message)}`;
+}
+
 async function sendEmail(config: AppConfig, to: string, subject: string, text: string): Promise<void> {
   const res = await fetch("https://api.resend.com/emails", {
     method: "POST",
@@ -58,6 +72,8 @@ async function sendEmail(config: AppConfig, to: string, subject: string, text: s
  * quedaron guardados igual.
  */
 export async function sendPaymentConfirmedEmails(config: AppConfig, reservation: Reservation): Promise<void> {
+  const whatsappLink = buildWhatsappConfirmLink(reservation);
+
   await sendEmail(
     config,
     config.ownerNotificationEmail,
@@ -75,6 +91,7 @@ export async function sendPaymentConfirmedEmails(config: AppConfig, reservation:
       `Notas: ${reservation.notes || "(sin notas)"}`,
       ``,
       `El pago ya está confirmado — contacta al cliente para confirmar definitivamente el horario (sujeto a disponibilidad real de la agenda).`,
+      ...(whatsappLink ? [``, `Confirmarle por WhatsApp con un clic: ${whatsappLink}`] : []),
     ].join("\n")
   );
 
