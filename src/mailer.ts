@@ -1,26 +1,13 @@
-import nodemailer from "nodemailer";
-import { config } from "./config";
+import type { AppConfig } from "./config";
 import type { Reservation } from "./reservationsDb";
 import { businessConfig } from "./businessConfig";
 
-function isMailerConfigured(): boolean {
-  return Boolean(config.gmailUser && config.gmailAppPassword && config.ownerNotificationEmail);
-}
-
-let transporter: ReturnType<typeof nodemailer.createTransport> | null = null;
-
-function getTransporter() {
-  if (!transporter) {
-    transporter = nodemailer.createTransport({
-      service: "gmail",
-      auth: {
-        user: config.gmailUser,
-        pass: config.gmailAppPassword,
-      },
-    });
-  }
-  return transporter;
-}
+/**
+ * Envío de correos vía Resend (API HTTP) en vez de nodemailer/Gmail por
+ * SMTP — SMTP con sockets TCP directos no tiene soporte estable en
+ * Cloudflare Workers. Resend está hecho para funcionar en runtimes tipo
+ * Workers (una sola llamada fetch), y tiene 3.000 correos/mes gratis.
+ */
 
 function formatClp(amount: number | null): string {
   if (amount == null) return "(monto no registrado)";
@@ -39,6 +26,27 @@ function paymentSummaryLine(reservation: Reservation): string {
     : "Abono 20%";
 }
 
+async function sendEmail(config: AppConfig, to: string, subject: string, text: string): Promise<void> {
+  const res = await fetch("https://api.resend.com/emails", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${config.resendApiKey}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      from: config.mailFrom,
+      to,
+      subject,
+      text,
+    }),
+  });
+
+  if (!res.ok) {
+    const errText = await res.text();
+    throw new Error(`Resend rechazó el envío del correo (${res.status}): ${errText}`);
+  }
+}
+
 /**
  * Envía los correos de una reserva CON EL PAGO YA CONFIRMADO por
  * MercadoPago (llamar desde el webhook, no desde el submit del formulario —
@@ -49,20 +57,12 @@ function paymentSummaryLine(reservation: Reservation): string {
  * registra pero no hace fallar el flujo, ya que el pago y la reserva ya
  * quedaron guardados igual.
  */
-export async function sendPaymentConfirmedEmails(reservation: Reservation): Promise<void> {
-  if (!isMailerConfigured()) {
-    throw new Error(
-      "El envío de correos no está configurado (faltan GMAIL_USER, GMAIL_APP_PASSWORD u OWNER_NOTIFICATION_EMAIL en .env)."
-    );
-  }
-
-  const mailer = getTransporter();
-
-  await mailer.sendMail({
-    from: `"${businessConfig.name}" <${config.gmailUser}>`,
-    to: config.ownerNotificationEmail,
-    subject: `✅ Pago recibido: ${reservation.service} — ${reservation.name}`,
-    text: [
+export async function sendPaymentConfirmedEmails(config: AppConfig, reservation: Reservation): Promise<void> {
+  await sendEmail(
+    config,
+    config.ownerNotificationEmail,
+    `✅ Pago recibido: ${reservation.service} — ${reservation.name}`,
+    [
       `Se confirmó el pago de una reserva hecha desde la página web.`,
       ``,
       `Cliente: ${reservation.name}`,
@@ -75,15 +75,15 @@ export async function sendPaymentConfirmedEmails(reservation: Reservation): Prom
       `Notas: ${reservation.notes || "(sin notas)"}`,
       ``,
       `El pago ya está confirmado — contacta al cliente para confirmar definitivamente el horario (sujeto a disponibilidad real de la agenda).`,
-    ].join("\n"),
-  });
+    ].join("\n")
+  );
 
   try {
-    await mailer.sendMail({
-      from: `"${businessConfig.name}" <${config.gmailUser}>`,
-      to: reservation.email,
-      subject: `Recibimos tu pago — ${businessConfig.name}`,
-      text: [
+    await sendEmail(
+      config,
+      reservation.email,
+      `Recibimos tu pago — ${businessConfig.name}`,
+      [
         `¡Hola ${reservation.name}!`,
         ``,
         `Recibimos tu pago de ${formatClp(reservation.price)} por "${reservation.service}" para el ${reservation.preferredDate} a las ${reservation.preferredTime}. ¡Gracias!`,
@@ -97,8 +97,8 @@ export async function sendPaymentConfirmedEmails(reservation: Reservation): Prom
         `Si tienes dudas mientras tanto, puedes escribirnos por WhatsApp.`,
         ``,
         `${businessConfig.name}`,
-      ].join("\n"),
-    });
+      ].join("\n")
+    );
   } catch (err) {
     console.error("No se pudo enviar el correo de confirmación de pago al cliente:", err);
   }

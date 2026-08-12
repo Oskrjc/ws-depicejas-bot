@@ -1,0 +1,24 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "ES2022",
+    "moduleResolution": "Bundler",
+    "lib": ["ES2022"],
+    "types": ["@cloudflare/workers-types"],
+    "strict": true,
+    "skipLibCheck": true,
+    "noEmit": true,
+    "esModuleInterop": true,
+    "resolveJsonModule": true
+  },
+  "include": [
+    "src/app.ts",
+    "src/config.ts",
+    "src/dbClient.ts",
+    "src/reservationsDb.ts",
+    "src/slotsDb.ts",
+    "src/mercadopago.ts",
+    "src/mailer.ts",
+    "src/businessConfig.ts"
+  ]
+}

@@ -1,12 +1,17 @@
 name = "ws-depicejas-bot"
+main = "src/app.ts"
 compatibility_date = "2024-09-23"
 
-# Fase 1 de la migración a Cloudflare: solo el sitio público (web/) como
-# archivos estáticos, sin código de servidor todavía. En fases siguientes
-# se agrega "main" (el Worker con las rutas de la API vía Hono) y el
-# binding de D1 para la base de datos.
 [assets]
 directory = "web"
+binding = "ASSETS"
+# /admin/* tiene archivos estáticos reales (web/admin/*), pero deben pasar
+# primero por src/app.ts para la autenticación básica — sin esto, Cloudflare
+# serviría esos archivos directo sin pedir usuario/contraseña. La versión de
+# wrangler instalada solo soporta la forma booleana (todo pasa por el
+# Worker primero); src/app.ts tiene un catch-all al final que reenvía todo
+# lo que no es una ruta de la API hacia los assets estáticos.
+run_worker_first = true
 
 [[d1_databases]]
 binding = "DB"
