@@ -64,6 +64,28 @@ app.use("/admin/*", async (c, next) => {
 
 app.get("/health", (c) => c.json({ status: "ok" }));
 
+// TEMPORAL — diagnóstico del problema de auth en /admin. Borrar después.
+app.get("/debug-auth", (c) => {
+  const config = getConfig(c.env);
+  const authHeader = c.req.header("Authorization") || "";
+  const [scheme, encoded] = authHeader.split(" ");
+  let decoded = "";
+  try {
+    decoded = encoded ? atob(encoded) : "";
+  } catch (e) {
+    decoded = "ATOB_ERROR: " + String(e);
+  }
+  return c.json({
+    hasAuthHeader: Boolean(authHeader),
+    scheme,
+    decodedPreview: decoded ? decoded.slice(0, 3) + "***(" + decoded.length + " chars)" : null,
+    envAdminUsernameLength: config.adminUsername.length,
+    envAdminUsernamePreview: config.adminUsername.slice(0, 3),
+    envAdminPasswordLength: config.adminPassword.length,
+    envAdminPasswordIsEmpty: config.adminPassword.length === 0,
+  });
+});
+
 // ── Horarios disponibles para reservar (elegidos por Joselyn/Oscar desde /admin) ──
 app.get("/api/slots", async (c) => {
   const slots = await listAvailableSlots(c.env.DB);
