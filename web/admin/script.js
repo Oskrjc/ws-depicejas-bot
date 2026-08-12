@@ -69,7 +69,10 @@ async function loadReservations() {
         <td class="notes-cell">${escapeHtml(r.notes || "—")}</td>
         <td>${paymentBadge(r)}</td>
         <td><input type="checkbox" data-id="${r.id}" class="contacted-checkbox" ${r.contacted ? "checked" : ""} /></td>
-        <td><button type="button" class="icon-btn delete-btn" data-id="${r.id}" title="Eliminar">🗑️</button></td>
+        <td>
+          ${r.paymentStatus === "approved" ? `<button type="button" class="icon-btn resend-email-btn" data-id="${r.id}" title="Reenviar correo de confirmación">✉️</button>` : ""}
+          <button type="button" class="icon-btn delete-btn" data-id="${r.id}" title="Eliminar">🗑️</button>
+        </td>
       `;
       bodyEl.appendChild(tr);
     }
@@ -83,6 +86,27 @@ async function loadReservations() {
           body: JSON.stringify({ contacted: e.target.checked }),
         });
         e.target.closest("tr").classList.toggle("contacted", e.target.checked);
+      });
+    });
+
+    bodyEl.querySelectorAll(".resend-email-btn").forEach((btn) => {
+      btn.addEventListener("click", async (e) => {
+        const id = e.target.getAttribute("data-id");
+        e.target.disabled = true;
+        const originalText = e.target.textContent;
+        e.target.textContent = "…";
+        try {
+          const res = await fetch(`/admin/api/reservations/${id}/resend-email`, { method: "POST" });
+          const data = await res.json().catch(() => ({}));
+          if (res.ok) {
+            alert("Correo reenviado.");
+          } else {
+            alert(data.error || "No se pudo reenviar el correo.");
+          }
+        } finally {
+          e.target.disabled = false;
+          e.target.textContent = originalText;
+        }
       });
     });
 

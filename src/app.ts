@@ -11,6 +11,7 @@ import {
   setReservationPreferenceId,
   setReservationPaymentStatus,
   getReservationByExternalReference,
+  getReservationById,
 } from "./reservationsDb";
 import { sendPaymentConfirmedEmails } from "./mailer";
 import { createPaymentPreference, getPayment } from "./mercadopago";
@@ -222,6 +223,30 @@ app.patch("/admin/api/reservations/:id/contacted", async (c) => {
     return c.json({ error: "Reserva no encontrada." }, 404);
   }
   return c.json(updated);
+});
+
+// Reenvía el correo de confirmación de pago (útil si el correo tenía un
+// error de tipeo, cayó en spam, o Resend falló temporalmente). Solo tiene
+// sentido para reservas con el pago ya aprobado.
+app.post("/admin/api/reservations/:id/resend-email", async (c) => {
+  const id = Number(c.req.param("id"));
+  const reservation = await getReservationById(c.env.DB, id);
+
+  if (!reservation) {
+    return c.json({ error: "Reserva no encontrada." }, 404);
+  }
+  if (reservation.paymentStatus !== "approved") {
+    return c.json({ error: "Esta reserva todavía no tiene un pago aprobado — no hay nada que reenviar." }, 400);
+  }
+
+  try {
+    const config = getConfig(c.env);
+    await sendPaymentConfirmedEmails(config, reservation);
+    return c.json({ ok: true });
+  } catch (err) {
+    console.error("Error reenviando correo de confirmación:", err);
+    return c.json({ error: "No se pudo reenviar el correo. Intenta de nuevo en un momento." }, 500);
+  }
 });
 
 app.delete("/admin/api/reservations/:id", async (c) => {
