@@ -7,3 +7,8 @@ compatibility_date = "2024-09-23"
 # binding de D1 para la base de datos.
 [assets]
 directory = "web"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "depicejas-db"
+database_id = "a6c52634-dc32-4b2c-8e9f-8139371e5eaf"

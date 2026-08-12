@@ -1,4 +1,4 @@
-import { db } from "./db";
+import type { D1Database } from "./dbClient";
 
 /**
  * Horarios de atención que Joselyn (o Oscar) abren manualmente desde el
@@ -6,6 +6,12 @@ import { db } from "./db";
  * elegir entre los horarios "available" — así se evita que dos clientas
  * reserven la misma hora, y ya no se depende de que la clienta escriba una
  * fecha/hora libremente.
+ *
+ * El esquema vive en migrations/0001_init.sql. La operación crítica
+ * (bookSlot) sigue siendo segura frente a reservas simultáneas: aunque
+ * Workers sí puede atender pedidos en paralelo (a diferencia del Node
+ * single-threaded de Railway), D1 serializa las escrituras de una misma
+ * base — el UPDATE ... WHERE status = 'available' es atómico igual.
  */
 
 export type SlotStatus = "available" | "booked";
@@ -22,41 +28,35 @@ export interface SlotWithReservation extends Slot {
   reservationName: string | null;
 }
 
-db.exec(`
-  CREATE TABLE IF NOT EXISTS slots (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    date TEXT NOT NULL,
-    time TEXT NOT NULL,
-    status TEXT NOT NULL DEFAULT 'available',
-    reservation_id INTEGER,
-    created_at TEXT NOT NULL DEFAULT (datetime('now')),
-    UNIQUE(date, time)
-  )
-`);
-
 const SELECT_COLUMNS = `id, date, time, status, reservation_id as reservationId`;
 
 /**
- * Crea horarios disponibles para una fecha (uno o varios de una vez). Si
- * alguno ya existía (misma fecha+hora) se ignora en silencio, para poder
- * reintentar sin duplicar ni romper por la restricción UNIQUE.
+ * Crea horarios disponibles para una fecha (uno o varios de una vez, en un
+ * solo batch atómico). Si alguno ya existía (misma fecha+hora) se ignora en
+ * silencio, para poder reintentar sin duplicar ni romper por la
+ * restricción UNIQUE.
  */
-export function createSlots(date: string, times: string[]): Slot[] {
-  const insert = db.prepare(`INSERT OR IGNORE INTO slots (date, time) VALUES (?, ?)`);
-  const insertMany = db.transaction((rows: string[]) => {
-    for (const time of rows) insert.run(date, time);
-  });
-  insertMany(times);
-  return listSlotsByDate(date);
+export async function createSlots(db: D1Database, date: string, times: string[]): Promise<Slot[]> {
+  if (times.length > 0) {
+    const statements = times.map((time) =>
+      db.prepare(`INSERT OR IGNORE INTO slots (date, time) VALUES (?, ?)`).bind(date, time)
+    );
+    await db.batch(statements);
+  }
+  return listSlotsByDate(db, date);
 }
 
-export function listSlotsByDate(date: string): Slot[] {
-  return db.prepare(`SELECT ${SELECT_COLUMNS} FROM slots WHERE date = ? ORDER BY time ASC`).all(date) as Slot[];
+export async function listSlotsByDate(db: D1Database, date: string): Promise<Slot[]> {
+  const { results } = await db
+    .prepare(`SELECT ${SELECT_COLUMNS} FROM slots WHERE date = ? ORDER BY time ASC`)
+    .bind(date)
+    .all();
+  return (results ?? []) as unknown as Slot[];
 }
 
 /** Todos los horarios (para el panel de administrador), con el nombre de la clienta si ya está reservado. */
-export function listAllSlots(): SlotWithReservation[] {
-  return db
+export async function listAllSlots(db: D1Database): Promise<SlotWithReservation[]> {
+  const { results } = await db
     .prepare(
       `
     SELECT s.id, s.date, s.time, s.status, s.reservation_id as reservationId, r.name as reservationName
@@ -65,17 +65,20 @@ export function listAllSlots(): SlotWithReservation[] {
     ORDER BY s.date ASC, s.time ASC
   `
     )
-    .all() as SlotWithReservation[];
+    .all();
+  return (results ?? []) as unknown as SlotWithReservation[];
 }
 
 /** Horarios disponibles a futuro (para el formulario público de reserva). */
-export function listAvailableSlots(): Slot[] {
+export async function listAvailableSlots(db: D1Database): Promise<Slot[]> {
   const today = new Date().toISOString().slice(0, 10);
-  return db
+  const { results } = await db
     .prepare(
       `SELECT ${SELECT_COLUMNS} FROM slots WHERE status = 'available' AND date >= ? ORDER BY date ASC, time ASC`
     )
-    .all(today) as Slot[];
+    .bind(today)
+    .all();
+  return (results ?? []) as unknown as Slot[];
 }
 
 /**
@@ -84,24 +87,26 @@ export function listAvailableSlots(): Slot[] {
  * devuelve false, para que el llamador pueda avisar y no cobrar dos veces
  * la misma hora.
  */
-export function bookSlot(date: string, time: string, reservationId: number): boolean {
-  const info = db
+export async function bookSlot(db: D1Database, date: string, time: string, reservationId: number): Promise<boolean> {
+  const result = await db
     .prepare(`UPDATE slots SET status = 'booked', reservation_id = ? WHERE date = ? AND time = ? AND status = 'available'`)
-    .run(reservationId, date, time);
-  return info.changes > 0;
+    .bind(reservationId, date, time)
+    .run();
+  return (result.meta.changes ?? 0) > 0;
 }
 
 /** Libera el horario ligado a una reserva (pago rechazado/cancelado, o la reserva se eliminó desde el panel). */
-export function freeSlotByReservationId(reservationId: number): void {
-  db.prepare(`UPDATE slots SET status = 'available', reservation_id = NULL WHERE reservation_id = ?`).run(reservationId);
+export async function freeSlotByReservationId(db: D1Database, reservationId: number): Promise<void> {
+  await db.prepare(`UPDATE slots SET status = 'available', reservation_id = NULL WHERE reservation_id = ?`).bind(reservationId).run();
 }
 
 /** Elimina un horario disponible. Si ya está reservado, no lo borra (hay que liberar/eliminar la reserva primero). */
-export function deleteAvailableSlot(id: number): boolean {
-  const info = db.prepare(`DELETE FROM slots WHERE id = ? AND status = 'available'`).run(id);
-  return info.changes > 0;
+export async function deleteAvailableSlot(db: D1Database, id: number): Promise<boolean> {
+  const result = await db.prepare(`DELETE FROM slots WHERE id = ? AND status = 'available'`).bind(id).run();
+  return (result.meta.changes ?? 0) > 0;
 }
 
-export function getSlotById(id: number): Slot | undefined {
-  return db.prepare(`SELECT ${SELECT_COLUMNS} FROM slots WHERE id = ?`).get(id) as Slot | undefined;
+export async function getSlotById(db: D1Database, id: number): Promise<Slot | undefined> {
+  const row = await db.prepare(`SELECT ${SELECT_COLUMNS} FROM slots WHERE id = ?`).bind(id).first();
+  return (row ?? undefined) as unknown as Slot | undefined;
 }
