@@ -1,0 +1,9 @@
+name = "ws-depicejas-bot"
+compatibility_date = "2024-09-23"
+
+# Fase 1 de la migración a Cloudflare: solo el sitio público (web/) como
+# archivos estáticos, sin código de servidor todavía. En fases siguientes
+# se agrega "main" (el Worker con las rutas de la API vía Hono) y el
+# binding de D1 para la base de datos.
+[assets]
+directory = "web"
