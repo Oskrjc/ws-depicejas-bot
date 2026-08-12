@@ -616,6 +616,8 @@ a { color: inherit; }
   color: var(--color-ink-soft);
 }
 .footer-inner p { margin: 0; }
+.footer-contact { display: inline-flex; align-items: center; gap: 6px; }
+.footer-contact svg { width: 15px; height: 15px; flex-shrink: 0; color: var(--color-ink-soft); }
 
 /* Responsive */
 @media (max-width: 760px) {
