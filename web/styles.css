@@ -519,6 +519,24 @@ a { color: inherit; }
 .info-item strong { display: block; color: var(--color-ink); margin-bottom: 2px; }
 .info-item p { margin: 0; }
 
+.map-link {
+  display: inline-block;
+  margin-top: 6px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--color-primary-dark);
+  text-decoration: none;
+}
+.map-link:hover { text-decoration: underline; }
+.map-embed {
+  display: block;
+  width: 100%;
+  height: 180px;
+  margin-top: 10px;
+  border: 1px solid var(--color-border);
+  border-radius: 12px;
+}
+
 /* FAQ */
 .faq-list { display: grid; gap: 12px; margin-top: 24px; }
 .faq-list details {
