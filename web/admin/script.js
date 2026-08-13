@@ -141,16 +141,23 @@ loadReservations();
 
 // ── Horarios disponibles ───────────────────────────────────────────────────
 const slotsStatusEl = document.getElementById("slotsStatus");
-const slotsBodyEl = document.getElementById("slotsBody");
+const slotsByDayEl = document.getElementById("slotsByDay");
 
 const SLOT_STATUS_LABELS = {
   available: "Disponible",
   booked: "Reservado",
 };
 
+function formatDayLabel(dateStr) {
+  const d = new Date(dateStr + "T00:00:00");
+  if (isNaN(d.getTime())) return dateStr;
+  const label = d.toLocaleDateString("es-CL", { weekday: "long", day: "numeric", month: "long" });
+  return label.charAt(0).toUpperCase() + label.slice(1);
+}
+
 async function loadSlots() {
   slotsStatusEl.textContent = "Cargando...";
-  slotsBodyEl.innerHTML = "";
+  slotsByDayEl.innerHTML = "";
 
   try {
     const res = await fetch("/admin/api/slots");
@@ -164,29 +171,73 @@ async function loadSlots() {
 
     slotsStatusEl.textContent = slots.length + " horario(s).";
 
+    // Agrupa por fecha, preservando el orden en que ya vienen (ASC por fecha/hora).
+    const byDate = new Map();
     for (const s of slots) {
-      const isBooked = s.status === "booked";
-      const badgeClass = isBooked ? "payment-badge-rejected" : "payment-badge-approved";
-      const label = SLOT_STATUS_LABELS[s.status] || s.status;
-      const withName = isBooked && s.reservationName ? `${label} — ${escapeHtml(s.reservationName)}` : label;
-
-      const tr = document.createElement("tr");
-      tr.innerHTML = `
-        <td>${escapeHtml(s.date)}</td>
-        <td>${escapeHtml(s.time)}</td>
-        <td><span class="payment-badge ${badgeClass}">${withName}</span></td>
-        <td>${isBooked ? "" : `<button type="button" class="icon-btn delete-slot-btn" data-id="${s.id}" title="Eliminar">🗑️</button>`}</td>
-      `;
-      slotsBodyEl.appendChild(tr);
+      if (!byDate.has(s.date)) byDate.set(s.date, []);
+      byDate.get(s.date).push(s);
     }
 
-    slotsBodyEl.querySelectorAll(".delete-slot-btn").forEach((btn) => {
+    const today = new Date().toISOString().slice(0, 10);
+    let isFirst = true;
+
+    for (const [date, daySlots] of byDate) {
+      const bookedCount = daySlots.filter((s) => s.status === "booked").length;
+      const availableCount = daySlots.length - bookedCount;
+
+      const details = document.createElement("details");
+      details.className = "day-group";
+      // Abre solo el primer día (normalmente el más próximo) para no saturar la pantalla.
+      if (isFirst) details.open = true;
+      isFirst = false;
+
+      const summary = document.createElement("summary");
+      summary.innerHTML = `
+        <span class="day-group-label">${escapeHtml(formatDayLabel(date))}${date === today ? " · hoy" : ""}</span>
+        <span class="day-group-count">${availableCount} disponible(s)${bookedCount ? `, ${bookedCount} reservado(s)` : ""}</span>
+      `;
+      details.appendChild(summary);
+
+      const table = document.createElement("table");
+      table.innerHTML = `
+        <thead><tr><th>Hora</th><th>Estado</th><th></th></tr></thead>
+        <tbody></tbody>
+      `;
+      const tbody = table.querySelector("tbody");
+
+      for (const s of daySlots) {
+        const isBooked = s.status === "booked";
+        const badgeClass = isBooked ? "payment-badge-rejected" : "payment-badge-approved";
+        const label = SLOT_STATUS_LABELS[s.status] || s.status;
+        const withName = isBooked && s.reservationName ? `${label} — ${escapeHtml(s.reservationName)}` : label;
+
+        const tr = document.createElement("tr");
+        tr.innerHTML = `
+          <td>${escapeHtml(s.time)}</td>
+          <td><span class="payment-badge ${badgeClass}">${withName}</span></td>
+          <td>${isBooked ? "" : `<button type="button" class="icon-btn delete-slot-btn" data-id="${s.id}" title="Eliminar">🗑️</button>`}</td>
+        `;
+        tbody.appendChild(tr);
+      }
+
+      const wrap = document.createElement("div");
+      wrap.className = "table-wrap";
+      wrap.appendChild(table);
+      details.appendChild(wrap);
+      slotsByDayEl.appendChild(details);
+    }
+
+    slotsByDayEl.querySelectorAll(".delete-slot-btn").forEach((btn) => {
       btn.addEventListener("click", async (e) => {
         const id = e.target.getAttribute("data-id");
         if (!confirm("¿Eliminar este horario disponible?")) return;
         const res = await fetch(`/admin/api/slots/${id}`, { method: "DELETE" });
         if (res.ok) {
-          e.target.closest("tr").remove();
+          const tr = e.target.closest("tr");
+          const details = e.target.closest("details");
+          tr.remove();
+          // Si era el último horario de ese día, colapsa/quita el grupo entero.
+          if (details && !details.querySelector("tbody tr")) details.remove();
         } else {
           const data = await res.json().catch(() => ({}));
           alert(data.error || "No se pudo eliminar el horario.");
