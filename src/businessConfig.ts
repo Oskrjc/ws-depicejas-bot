@@ -38,28 +38,28 @@ export const businessConfig = {
   // es solo el texto que se muestra — si cambias un precio, actualiza AMBOS.
   services: [
     // — Depilación facial (10 a 20 min) —
-    { name: "Perfilado de cejas", description: "Depilación facial.", priceInfo: "$10.000", price: 10000, durationMinutes: 15 },
-    { name: "Pigmento de cejas", description: "Depilación facial.", priceInfo: "$10.000", price: 10000, durationMinutes: 15 },
-    { name: "Cejas semipermanente + bozo", description: "Depilación facial.", priceInfo: "$15.000", price: 15000, durationMinutes: 20 },
+    { name: "Perfilado de cejas", description: "Depilación facial.", priceInfo: "$8.000", price: 8000, durationMinutes: 15 },
+    { name: "Pigmento de cejas", description: "Depilación facial.", priceInfo: "$8.000", price: 8000, durationMinutes: 15 },
+    { name: "Cejas semipermanente + bozo", description: "Depilación facial.", priceInfo: "$12.000", price: 12000, durationMinutes: 20 },
     { name: "Bozo", description: "Depilación facial.", priceInfo: "$3.000", price: 3000, durationMinutes: 10 },
     { name: "Frente", description: "Depilación facial.", priceInfo: "$5.000", price: 5000, durationMinutes: 10 },
     { name: "Barbilla", description: "Depilación facial.", priceInfo: "$4.000", price: 4000, durationMinutes: 10 },
     { name: "Patillas", description: "Depilación facial.", priceInfo: "$5.000", price: 5000, durationMinutes: 10 },
-    { name: "Rostro completo", description: "Depilación facial.", priceInfo: "$23.000", price: 23000, durationMinutes: 20 },
+    { name: "Rostro completo", description: "Depilación facial.", priceInfo: "$20.000", price: 20000, durationMinutes: 20 },
 
     // — Depilación corporal (20 a 40 min) —
-    { name: "Axilas", description: "Depilación corporal.", priceInfo: "$10.000", price: 10000, durationMinutes: 20 },
-    { name: "Brazos", description: "Depilación corporal.", priceInfo: "$13.000", price: 13000, durationMinutes: 25 },
+    { name: "Axilas", description: "Depilación corporal.", priceInfo: "$8.000", price: 8000, durationMinutes: 20 },
+    { name: "Brazos", description: "Depilación corporal.", priceInfo: "$12.000", price: 12000, durationMinutes: 25 },
     { name: "Glúteos", description: "Depilación corporal.", priceInfo: "$12.000", price: 12000, durationMinutes: 20 },
-    { name: "Rebaje completo", description: "Depilación corporal.", priceInfo: "$20.000", price: 20000, durationMinutes: 30 },
-    { name: "Bikini", description: "Depilación corporal.", priceInfo: "$16.000", price: 16000, durationMinutes: 25 },
+    { name: "Rebaje completo", description: "Depilación corporal.", priceInfo: "$18.000", price: 18000, durationMinutes: 30 },
+    { name: "Bikini", description: "Depilación corporal.", priceInfo: "$12.000", price: 12000, durationMinutes: 25 },
     { name: "Media piernas", description: "Depilación corporal.", priceInfo: "$15.000", price: 15000, durationMinutes: 30 },
-    { name: "Piernas completas", description: "Depilación corporal.", priceInfo: "$22.000", price: 22000, durationMinutes: 40 },
-    { name: "Espalda baja", description: "Depilación corporal.", priceInfo: "$10.000", price: 10000, durationMinutes: 20 },
+    { name: "Piernas completas", description: "Depilación corporal.", priceInfo: "$20.000", price: 20000, durationMinutes: 40 },
+    { name: "Espalda baja", description: "Depilación corporal.", priceInfo: "$8.000", price: 8000, durationMinutes: 20 },
 
     // — Lifting de pestañas / Browlamination (1h a 1h20) —
-    { name: "Lifting de pestañas", description: "Lifting de pestañas.", priceInfo: "$28.000", price: 28000, durationMinutes: 80 },
-    { name: "Browlamination", description: "Laminado de cejas.", priceInfo: "$25.000", price: 25000, durationMinutes: 70 },
+    { name: "Lifting de pestañas", description: "Lifting de pestañas.", priceInfo: "$25.000", price: 25000, durationMinutes: 80 },
+    { name: "Browlamination", description: "Laminado de cejas.", priceInfo: "$20.000", price: 20000, durationMinutes: 70 },
   ],
 
   // Preguntas frecuentes con sus respuestas — el bot las usa como base de
@@ -71,7 +71,7 @@ export const businessConfig = {
     },
     {
       question: "¿Cómo se paga?",
-      answer: "Aceptamos efectivo y transferencia. Pronto también tarjeta de débito y crédito.",
+      answer: "Aceptamos efectivo, transferencia y tarjetas (débito/crédito).",
     },
     {
       question: "¿Hay que pagar algo para reservar?",
