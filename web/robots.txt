@@ -1,0 +1,8 @@
+User-agent: *
+Allow: /
+Disallow: /admin/
+Disallow: /reserva-exitosa.html
+Disallow: /reserva-pendiente.html
+Disallow: /reserva-fallida.html
+
+Sitemap: https://depicejas.cl/sitemap.xml
