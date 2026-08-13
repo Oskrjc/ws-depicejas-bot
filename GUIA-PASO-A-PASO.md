@@ -8,10 +8,16 @@ Sirve para dos cosas: entender qué tocar si quieres seguir modificando este
 proyecto, y repetir el proceso en un proyecto futuro.
 
 **Resultado final:**
-- Sitio público: `https://depicejas.ooli.uk`
-- Panel de reservas: `https://depicejas.ooli.uk/admin` (con contraseña)
+- Sitio público: `https://depicejas.cl`
+- Panel de reservas: `https://depicejas.cl/admin` (con contraseña)
 - Repositorio: `github.com/Oskrjc/ws-depicejas-bot`
-- Hosting: Railway · DNS: Cloudflare · Pagos: MercadoPago (Checkout Pro)
+- Hosting: Cloudflare Workers · Base de datos: Cloudflare D1 · Correos: Resend
+  · Pagos: MercadoPago (Checkout Pro)
+
+> Las fases 1-10 documentan cómo se construyó originalmente sobre Railway
+> con el dominio `depicejas.ooli.uk` — quedan como registro histórico. La
+> **FASE 11** documenta la migración completa a Cloudflare, que es donde
+> corre todo hoy.
 
 ---
 
@@ -703,6 +709,237 @@ tenga que hacer nada a mano.
 
 ---
 
+# FASE 11 — Migración de Railway a Cloudflare
+
+> **Nota:** a partir de acá, todo lo que está en uso real (sitio, reservas,
+> horarios, pagos, correos) corre en **Cloudflare**, no en Railway. Las
+> fases 6 y 7 (Railway, dominio) quedan como registro histórico de cómo se
+> armó originalmente — el dominio real hoy es `depicejas.cl` (no
+> `ooli.uk`), apuntando a Cloudflare.
+
+Motivo del cambio: no se podía seguir pagando los US$5/mes de Railway. El
+objetivo fue mover **todo lo que está en uso** (landing, reservas,
+horarios, panel de admin, pagos, correos) al plan gratuito de Cloudflare,
+sin depender de Railway en absoluto. El bot de WhatsApp (nunca activado en
+producción) se dejó fuera de esta migración — es la parte más difícil de
+portar (el SDK de `googleapis` no corre en el runtime de Cloudflare) y no
+estaba en uso, así que no valía la pena bloquear el resto por eso.
+
+## 11.1 Arquitectura nueva
+
+| Antes (Railway) | Ahora (Cloudflare) |
+|---|---|
+| Express (`src/server.ts`) | **Hono** (`src/app.ts`) — sintaxis casi idéntica a Express |
+| `better-sqlite3` + archivo en un volumen | **D1** (SQLite-compatible, gestionado por Cloudflare) |
+| SDK de MercadoPago (Node) | `fetch()` directo a la API REST de MercadoPago |
+| `nodemailer` + Gmail por SMTP | **Resend** (API HTTP) |
+| `express.static(web/)` | `[assets]` de Cloudflare Workers (sirve `web/` directo) |
+| Un solo proceso Node corriendo 24/7 | Un **Worker** (se ejecuta solo cuando llega una request) |
+
+Todo vive en un único **Cloudflare Worker** (`ws-depicejas-bot`) que combina
+archivos estáticos (`web/`) y código de servidor (`src/app.ts`) — no son dos
+productos separados como en el mundo de Railway.
+
+## 11.2 Por qué se trabajó en una rama aparte
+
+Railway se auto-despliega en cada push a `main`. Si se reescribía
+`reservationsDb.ts`/`server.ts` directo en `main` para que funcionaran en
+Cloudflare, el próximo push habría **roto el sitio que seguía funcionando
+en Railway** (el código ya no habría compilado ahí). Por eso toda la
+migración se hizo en la rama `cloudflare-migration`, dejando `main` /
+Railway intactos hasta el corte final del dominio (sección 11.9).
+
+## 11.3 `wrangler.toml` — el archivo de configuración central
+
+```toml
+name = "ws-depicejas-bot"
+main = "src/app.ts"
+compatibility_date = "2024-09-23"
+
+[assets]
+directory = "web"
+binding = "ASSETS"
+run_worker_first = true
+
+[[d1_databases]]
+binding = "DB"
+database_name = "depicejas-db"
+database_id = "a6c52634-dc32-4b2c-8e9f-8139371e5eaf"
+
+[[routes]]
+pattern = "depicejas.cl"
+custom_domain = true
+```
+
+- **`[assets]`**: `directory = "web"` le dice a Cloudflare qué carpeta
+  servir como sitio estático. `run_worker_first = true` hace que **toda**
+  request pase primero por `src/app.ts` (necesario para poder proteger
+  `/admin/*` con usuario/contraseña — si no, Cloudflare serviría esos
+  archivos directo, sin pedir login). Por eso `src/app.ts` termina con un
+  `app.all("*", (c) => c.env.ASSETS.fetch(c.req.raw))` que reenvía todo lo
+  que no es una ruta de la API hacia los archivos estáticos.
+- **`[[d1_databases]]`**: conecta la base D1 al binding `env.DB`.
+- **`[[routes]]`** con `custom_domain = true`: es el dominio real
+  (`depicejas.cl`) — Cloudflare provisiona el certificado SSL y el
+  ruteo solo, con `wrangler deploy`.
+
+`web/admin/` (antes `admin/` suelto) se movió **dentro** de `web/` para que
+`[assets]` pueda servirlo — sigue funcionando en la misma URL `/admin/...`
+de siempre, solo cambió dónde vive en el repo.
+
+## 11.4 Base de datos: D1
+
+El esquema vive en `migrations/0001_init.sql` (mismas tablas
+`reservations`/`slots` que antes). Se aplicó una sola vez, tanto local
+como en producción:
+
+```bash
+npx wrangler d1 execute depicejas-db --local --file=migrations/0001_init.sql
+npx wrangler d1 execute depicejas-db --remote --file=migrations/0001_init.sql
+```
+
+`src/reservationsDb.ts` y `src/slotsDb.ts` se reescribieron para la API de
+D1, que es **async** (llamadas de red, no un archivo local) y usa
+`.bind()` con parámetros posicionales (`?`) en vez de objetos `@nombre`.
+Como consecuencia, cada función ahora recibe el binding `D1Database` como
+primer parámetro (`saveReservation(db, reservation)`) en vez de importar
+una conexión global — en Workers no existe eso, el binding llega por
+request a través de `env` (ver `src/config.ts`, que pasó de un objeto
+armado una vez con `dotenv` a una función `getConfig(env)`).
+
+## 11.5 La API: de Express a Hono (`src/app.ts`)
+
+`src/app.ts` reemplaza completo a `src/server.ts`, con las mismas rutas
+(`/api/reservations`, `/api/slots`, `/api/payments/webhook`,
+`/admin/api/*`). El middleware de autenticación básica se aplica con
+`app.use("/admin/*", ...)`, y protege tanto la API **como** los archivos
+estáticos del panel (que se sirven al final del archivo, después de pasar
+la autenticación, vía `c.env.ASSETS.fetch(c.req.raw)`).
+
+## 11.6 Pagos: MercadoPago sin el SDK
+
+`src/mercadopago.ts` llama directo a `api.mercadopago.com` con `fetch()`
+en vez del SDK de Node (que no está garantizado en el runtime de Workers).
+
+> ⚠️ **Bug encontrado:** las primeras pruebas devolvían `403
+> PA_UNAUTHORIZED_RESULT_FROM_POLICIES` (el antifraude de MercadoPago) aun
+> con el token correcto. La causa: el SDK manda automáticamente headers
+> `X-Idempotency-Key` y `User-Agent` que `fetch()` no manda por defecto —
+> sin esos headers, MercadoPago trata la request como sospechosa. Se
+> solucionó agregándolos a mano en cada llamada.
+
+> ⚠️ **Otro hallazgo:** ese mismo bug solo se reproducía probando con
+> `wrangler dev` **local** (Miniflare) — la request idéntica funcionaba
+> perfecto por `curl` y también una vez desplegada de verdad a Cloudflare.
+> Lección: la simulación local de Workers no replica exactamente la red
+> real de Cloudflare para APIs externas con antifraude — para flujos
+> críticos de pago, probar contra un despliegue real, no solo local.
+
+## 11.7 Correos: de Gmail/nodemailer a Resend
+
+SMTP con sockets TCP no tiene soporte estable en Workers, así que se
+cambió a **Resend** (API HTTP, gratis hasta 3.000 correos/mes):
+
+1. Cuenta creada con el Gmail del negocio (`Depicejas.cl@gmail.com`).
+2. Dominio `depicejas.cl` agregado en Resend → verificación **manual**
+   (no la automática, que le daría acceso de escritura a Cloudflare) →
+   copiar los registros DNS (TXT `resend._domainkey`, MX `send`, TXT SPF
+   `send`) y agregarlos en Cloudflare → DNS → Records.
+3. API Key generado y guardado como secreto (`RESEND_API_KEY`).
+
+`src/mailer.ts` se reescribió para llamar a `https://api.resend.com/emails`
+con `fetch()` en vez de `nodemailer.createTransport(...)`.
+
+## 11.8 Variables de entorno y secretos
+
+El panel de Cloudflare para configurar variables (**Configuración →
+Variables y secretos**) separa **Producción** y **Vista previa**, y en la
+práctica la interfaz no dejó agregar la misma clave en los dos ambientes
+(error "Este nombre ya se utiliza" o la casilla de Vista previa
+bloqueada). La solución que sí funcionó de forma confiable fue usar la
+terminal:
+
+```bash
+npx wrangler login              # una vez, abre el navegador para autorizar
+npx wrangler secret put ADMIN_USERNAME
+npx wrangler secret put ADMIN_PASSWORD
+npx wrangler secret put BASE_URL
+npx wrangler secret put MERCADOPAGO_ACCESS_TOKEN
+npx wrangler secret put RESEND_API_KEY
+npx wrangler secret put MAIL_FROM
+npx wrangler secret put OWNER_NOTIFICATION_EMAIL
+```
+
+> ⚠️ `wrangler secret put` puede fallar con "the latest version of your
+> Worker isn't currently deployed" — pasa cuando la última versión subida
+> todavía no está "desplegada" de verdad (por ejemplo, si se subió desde
+> el dashboard). Se soluciona corriendo `npx wrangler deploy` una vez
+> antes de tocar secretos.
+
+## 11.9 Migración de los datos reales
+
+`migration/export-from-railway.ts` (script puntual, no se despliega) usa
+la API de admin ya existente contra el Railway **en vivo** para volcar las
+reservas y horarios reales a sentencias `INSERT`, preservando los IDs
+originales:
+
+```bash
+RAILWAY_BASE_URL=https://depicejas.cl ADMIN_USERNAME=admin ADMIN_PASSWORD=xxx \
+  npx ts-node --transpile-only migration/export-from-railway.ts
+
+npx wrangler d1 execute depicejas-db --remote --file=migration/data-export.sql
+```
+
+## 11.10 El corte del dominio
+
+Con `[[routes]]` + `custom_domain = true` en `wrangler.toml`, `wrangler
+deploy` intenta conectar `depicejas.cl` solo. Si el dominio todavía tiene
+un registro DNS apuntando a otro lado (en este caso, el CNAME viejo hacia
+Railway), falla con *"Hostname already has externally managed DNS
+records"* — hay que borrar ese registro en Cloudflare → DNS → Records
+**antes** de desplegar. Una vez borrado, `wrangler deploy` crea el
+registro nuevo solo y el tráfico real empieza a llegar a Cloudflare de
+inmediato (es el momento exacto del corte, no antes).
+
+Railway se dejó corriendo unos días como respaldo después del corte, sin
+tráfico real llegándole (ver ANEXO D para el apagado final).
+
+## 11.11 Funciones agregadas durante/después de la migración
+
+Aprovechando que se estaba tocando todo el backend, se sumaron:
+
+- **Reenviar correo de confirmación** (`POST
+  /admin/api/reservations/:id/resend-email`, botón ✉️ en el panel) — útil
+  si la clienta escribió mal su correo o el envío falló.
+- **Link de WhatsApp para confirmar horario** (botón 💬, solo en reservas
+  con pago aprobado) — abre WhatsApp con el mensaje de confirmación ya
+  redactado (nombre, servicio, fecha, hora), sin necesitar la API de
+  WhatsApp Business. El mismo link se incluye en el correo interno que
+  llega a Joselyn.
+- **Horarios agrupados por día** en el panel (acordeones), en vez de una
+  lista plana difícil de leer con muchos horarios cargados.
+- **Mapa embebido de Google Maps** + link "Cómo llegar" en la tarjeta de
+  dirección de la landing.
+- **Correo propio del dominio** (`contacto@depicejas.cl`) vía **Cloudflare
+  Email Routing** (gratis), reenviado automáticamente al Gmail del
+  negocio — no requiere una casilla de correo paga.
+- **SEO**: metadatos Open Graph/Twitter Card, datos estructurados
+  (`schema.org/BeautySalon`), `sitemap.xml`, `robots.txt`, favicon, y meta
+  descriptions con la ubicación real (San Miguel / Metro Franklin).
+
+## 11.12 Checklist de verificación
+
+- [ ] `depicejas.cl` carga con fotos y estilos
+- [ ] `/admin` pide usuario/contraseña y las reservas/horarios se ven bien
+- [ ] Reserva de prueba completa: horario se bloquea, se genera el link de
+  pago de MercadoPago, y una segunda reserva al mismo horario da 409
+- [ ] Pago de prueba llega a `reserva-exitosa.html` y los 2 correos
+  (interno + cliente) llegan por Resend
+- [ ] Botones ✉️ (reenviar correo) y 💬 (confirmar por WhatsApp) funcionan
+- [ ] `robots.txt` y `sitemap.xml` responden bien
+
+---
+
 # ANEXO A — Errores encontrados y cómo se resolvieron
 
 | Problema | Causa | Solución |
@@ -715,6 +952,12 @@ tenga que hacer nada a mano.
 | Variables de Railway con nombres raros | Traductor de Chrome activo | Desactivar traducción de la página |
 | Botón "Custom Domain" deshabilitado | Límite de 1 dominio en plan de prueba | Borrar el dominio anterior o subir de plan |
 | `Invoke-WebRequest -Method DELETE` con `-Headers` responde 401 aunque la clave sea correcta | Quirk de PowerShell 5.1: no siempre manda el header `Authorization` en verbos como `DELETE` | Probar con `curl -X DELETE -u usuario:clave` en vez de `Invoke-WebRequest` para descartar que sea un bug real |
+| MercadoPago responde 403 `PA_UNAUTHORIZED_RESULT_FROM_POLICIES` con `fetch()` pero funciona con el SDK/`curl` | Faltan los headers `X-Idempotency-Key` y `User-Agent` que el SDK manda solo | Agregarlos a mano en cada `fetch()` a la API de MercadoPago |
+| Ese mismo 403 solo pasaba en `wrangler dev` local, no en producción | La simulación local (Miniflare) no replica exactamente la red real de Cloudflare | Probar flujos de pago contra un despliegue real, no solo local |
+| Cloudflare: no se puede agregar la misma variable en "Producción" y "Vista previa" desde el dashboard | Bug/limitación de esa pantalla del panel | Usar `wrangler login` + `wrangler secret put NOMBRE` desde la terminal |
+| `wrangler secret put` falla con "the latest version isn't currently deployed" | La última versión subida no está "desplegada" de verdad | Correr `npx wrangler deploy` una vez antes de tocar secretos |
+| `wrangler deploy` con dominio personalizado falla: "Hostname already has externally managed DNS records" | Todavía existe el registro DNS viejo (ej. CNAME a Railway) | Borrarlo en Cloudflare → DNS → Records antes de desplegar |
+| Cambios en `web/` (CSS/JS/HTML) no se ven en producción tras desplegar | Caché de borde de Cloudflare, tarda unos segundos/minutos en propagar | Esperar y reintentar; para evitarlo en archivos que cambian seguido, usar `?v=` en el link/script |
 
 ---
 
@@ -722,12 +965,15 @@ tenga que hacer nada a mano.
 
 | Servicio | Costo | Nota |
 |---|---|---|
-| **Railway** | US$5/mes (plan Hobby) | La prueba gratuita expira a los 30 días o al gastar US$5. Después de eso, el sitio se cae si no se paga. |
-| **Cloudflare DNS** | Gratis | Solo pagas el registro del dominio |
-| **Dominio `ooli.uk`** | Ya registrado | Vence Jul 2027, renovación automática activa |
-| **Gmail (correos)** | Gratis | Dentro de los límites normales de envío |
-| **Claude API** (bot) | Por uso | Solo si activas el bot de WhatsApp |
+| **Cloudflare Workers** | Gratis | Plan gratuito: 100.000 requests/día — de sobra para este negocio |
+| **Cloudflare D1** (base de datos) | Gratis | 5 GB de almacenamiento, millones de lecturas/día en el plan gratuito |
+| **Cloudflare Email Routing** | Gratis | Reenvío de `contacto@depicejas.cl` al Gmail del negocio |
+| **Resend** (correos) | Gratis | Hasta 3.000 correos/mes |
+| **Cloudflare DNS** | Gratis | Solo se paga el registro del dominio |
+| **Dominio `depicejas.cl`** | Ya registrado (NIC Chile) | Revisar fecha de renovación anual |
+| **Claude API** (bot) | Por uso | Solo si se activa el bot de WhatsApp (no está activo) |
 | **MercadoPago** | Comisión por venta | Cobra un % del monto de cada pago aprobado (varía según medio de pago) — se descuenta automáticamente, no hay costo fijo mensual |
+| ~~Railway~~ | ~~US$5/mes~~ | Reemplazado por Cloudflare (ver FASE 11). Pendiente apagarlo del todo — ver ANEXO D. |
 
 ---
 
@@ -736,20 +982,25 @@ tenga que hacer nada a mano.
 ```
 src/
   businessConfig.ts     # ← datos del negocio (precios, horario, contacto)
-  config.ts             # carga de variables de entorno
-  whatsapp.ts           # cliente de WhatsApp Cloud API
-  calendar.ts           # integración con Google Calendar
-  claude.ts             # lógica del bot + herramientas
-  conversationStore.ts  # historial de conversación en memoria
-  reminders.ts          # cron job de recordatorios
-  db.ts                 # conexión SQLite compartida
-  reservationsDb.ts     # base de datos SQLite de reservas web + pagos
-  slotsDb.ts            # horarios disponibles/reservados (agenda)
-  mailer.ts             # envío de correos (Gmail)
-  mercadopago.ts        # integración de pagos (Checkout Pro)
-  server.ts             # Express: webhook + API + pagos + sitio estático + /admin
+  config.ts             # getConfig(env) — arma la config desde los bindings de Cloudflare
+  dbClient.ts            # reexporta el tipo D1Database (sin conexión global, llega por env)
+  reservationsDb.ts      # reservas en D1 (async)
+  slotsDb.ts             # horarios disponibles/reservados en D1 (async)
+  mailer.ts              # envío de correos vía Resend (fetch)
+  mercadopago.ts          # pagos vía API REST de MercadoPago (fetch, sin SDK)
+  app.ts                  # app de Hono — TODAS las rutas (reemplaza server.ts)
 
-web/                    # sitio público
+  # Código del bot de WhatsApp — existe pero NO se despliega (ver ANEXO D):
+  whatsapp.ts, calendar.ts, claude.ts, conversationStore.ts, reminders.ts
+
+wrangler.toml            # config del Worker: assets, D1, dominio personalizado
+migrations/0001_init.sql # esquema de D1 (se aplica con `wrangler d1 execute`)
+tsconfig.worker.json     # tsconfig separado para tipar el código de Cloudflare
+                          # (tsconfig.json normal quedó para el server.ts viejo/Railway)
+migration/
+  export-from-railway.ts # script puntual: vuelca datos reales de Railway a D1
+
+web/                    # TODO el sitio (estático + admin), servido por [assets]
   index.html
   sobre-mi.html
   reserva-exitosa.html    # resultado del pago (redirección de MercadoPago)
@@ -757,31 +1008,47 @@ web/                    # sitio público
   reserva-fallida.html
   styles.css
   script.js
+  robots.txt
+  sitemap.xml
   images/
-
-admin/                  # panel de reservas (protegido con contraseña)
-  index.html
-  styles.css
-  script.js
+  admin/                 # panel de reservas — protegido por src/app.ts, no por carpeta aparte
+    index.html
+    styles.css
+    script.js
 ```
 
 ---
 
 # ANEXO D — Pendientes / mejoras posibles
 
-- **Bot de WhatsApp:** el código está listo pero falta configurar la cuenta
-  de WhatsApp Business API en Meta y la cuenta de servicio de Google
-  Calendar (ver secciones 1 y 2 del `README.md`). Al activarlo, el Callback
-  URL del webhook debe ser `https://depicejas.ooli.uk/webhook`.
-- **MercadoPago:** el código está listo (ver FASE 9) pero falta crear la
-  cuenta y configurar `MERCADOPAGO_ACCESS_TOKEN` y `BASE_URL`. Mientras no
-  esté configurado, el formulario de reservas responde con un error claro
-  en vez de romperse.
-- **Dominio con el nombre del negocio:** hoy es `depicejas.ooli.uk`. Comprar
-  `depicejascl.com` (~US$11/año) daría una imagen más profesional. Se puede
-  agregar sin rehacer nada — solo un "+ Custom Domain" más.
+- **Apagar Railway del todo:** desde el corte de dominio (FASE 11.10), ya
+  no le llega tráfico real, pero el servicio sigue corriendo (y
+  potencialmente cobrando) hasta cancelarlo/eliminarlo manualmente en el
+  dashboard de Railway. Hacerlo solo después de confirmar unos días de
+  estabilidad en Cloudflare.
+- **Bot de WhatsApp:** el código está listo (`whatsapp.ts`, `claude.ts`,
+  `calendar.ts`, `conversationStore.ts`, `reminders.ts`) pero **no se
+  despliega** en Cloudflare — quedó fuera de la migración a propósito (ver
+  FASE 11). Para activarlo en el futuro falta: (1) configurar la cuenta de
+  WhatsApp Business API en Meta, (2) reescribir `calendar.ts` sin el SDK
+  de `googleapis` (no corre en Workers — habría que usar la API REST de
+  Google Calendar + firmar el JWT del service account a mano con Web
+  Crypto), y (3) mover `conversationStore.ts` de memoria a Cloudflare KV
+  (en Workers no persiste entre requests).
+- **Actualizar `wrangler`:** el proyecto quedó en la v3 (hay v4 disponible).
+  Funciona bien tal como está; actualizar eventualmente pero no es
+  urgente.
+- **Secretos como "Secret" cifrado real:** algunos valores (ej.
+  `ADMIN_PASSWORD`) se guardaron como variable de texto plano en el
+  dashboard en algún momento de la migración — conviene revisar en
+  Configuración → Variables y secretos que los sensibles (`ADMIN_PASSWORD`,
+  `MERCADOPAGO_ACCESS_TOKEN`, `RESEND_API_KEY`) estén marcados como
+  **Secreto** (cifrados), no como texto plano.
+- **Google Search Console:** agregar la propiedad `depicejas.cl` y enviar
+  `https://depicejas.cl/sitemap.xml` para que Google indexe el sitio en
+  días en vez de semanas.
 - **Historial de conversación del bot:** vive en memoria, se pierde al
-  reiniciar. Si el negocio crece, migrar `conversationStore.ts` a la misma
-  base de datos SQLite.
-- **Analítica:** no hay ninguna medición de visitas. Cloudflare Analytics
-  viene gratis con el dominio y no requiere cambios en el código.
+  reiniciar — ver punto del bot de WhatsApp arriba (migrar a KV).
+- **Analítica:** no hay ninguna medición de visitas. Cloudflare Web
+  Analytics viene gratis y no requiere cambios en el código (se activa
+  desde el dashboard).
