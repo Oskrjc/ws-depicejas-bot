@@ -504,6 +504,13 @@ a { color: inherit; }
   align-items: flex-start;
   gap: 14px;
 }
+.info-item > span {
+  /* Sin esto, el span de texto solo ocupa el ancho de su contenido — el
+     mapa (que es width:100% DE ESE span) quedaba angosto en vez de ocupar
+     todo el ancho de la tarjeta. */
+  flex: 1 1 auto;
+  min-width: 0;
+}
 .info-icon {
   flex: 0 0 auto;
   width: 40px;
