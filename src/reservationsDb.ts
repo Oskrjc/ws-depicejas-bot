@@ -27,6 +27,8 @@ export interface Reservation {
   paymentStatus: PaymentStatus;
   mpPreferenceId: string | null;
   mpPaymentId: string | null;
+  /** Fecha/hora (ISO) en que el cliente aceptó la Política de Privacidad al reservar — prueba de consentimiento. */
+  consentAcceptedAt: string | null;
 }
 
 export interface NewReservation {
@@ -43,6 +45,8 @@ export interface NewReservation {
   /** Suma de los precios completos de todos los servicios elegidos, sin descuento. */
   fullPrice?: number;
   paymentOption?: PaymentOption;
+  /** ISO de cuándo el cliente marcó el checkbox de la Política de Privacidad (ver POST /api/reservations en app.ts). */
+  consentAcceptedAt?: string;
 }
 
 // El esquema de la tabla vive en migrations/0001_init.sql (se aplica una
@@ -60,7 +64,8 @@ const SELECT_COLUMNS = `
   payment_option as paymentOption,
   payment_status as paymentStatus,
   mp_preference_id as mpPreferenceId,
-  mp_payment_id as mpPaymentId
+  mp_payment_id as mpPaymentId,
+  consent_accepted_at as consentAcceptedAt
 `;
 
 function toReservation(row: any): Reservation {
@@ -70,8 +75,8 @@ function toReservation(row: any): Reservation {
 export async function saveReservation(db: D1Database, reservation: NewReservation): Promise<Reservation> {
   const result = await db
     .prepare(
-      `INSERT INTO reservations (name, email, phone, service, preferred_date, preferred_time, notes, price, full_price, payment_option)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+      `INSERT INTO reservations (name, email, phone, service, preferred_date, preferred_time, notes, price, full_price, payment_option, consent_accepted_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
     )
     .bind(
       reservation.name,
@@ -83,7 +88,8 @@ export async function saveReservation(db: D1Database, reservation: NewReservatio
       reservation.notes ?? null,
       reservation.price ?? null,
       reservation.fullPrice ?? null,
-      reservation.paymentOption ?? null
+      reservation.paymentOption ?? null,
+      reservation.consentAcceptedAt ?? null
     )
     .run();
 

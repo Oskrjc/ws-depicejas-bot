@@ -427,6 +427,22 @@ a { color: inherit; }
 }
 .services-empty-hint.visible { display: block; }
 
+.form-row-consent { margin-top: -4px; }
+.consent-checkbox {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  cursor: pointer;
+  font-size: 0.88rem;
+  color: var(--color-ink-soft);
+}
+.consent-checkbox input[type="checkbox"] {
+  accent-color: var(--color-primary);
+  flex-shrink: 0;
+  margin-top: 3px;
+}
+.consent-checkbox a { color: var(--color-primary-dark); font-weight: 600; }
+
 .services-total {
   margin: 4px 0 0;
   font-weight: 700;
@@ -641,6 +657,61 @@ a { color: inherit; }
   color: var(--color-ink-soft);
 }
 .footer-inner p { margin: 0; }
+.footer-legal-links { font-size: 0.82rem; }
+.footer-legal-links a { color: inherit; text-decoration: underline; text-underline-offset: 2px; }
+.footer-legal-links a:hover { color: var(--color-primary-dark); }
+
+/* Textos legales (Política de Privacidad / Cookies) — reutiliza la
+   tipografía de .story-text pero con encabezados de sección propios. */
+.legal-text h2 {
+  font-size: 1.2rem;
+  margin: 32px 0 10px;
+  color: var(--color-primary-dark);
+}
+.legal-text ul { margin: 0 0 16px; padding-left: 20px; color: var(--color-ink-soft); }
+.legal-text li { margin-bottom: 6px; }
+
+/* Banner de consentimiento de cookies */
+.cookie-banner {
+  position: fixed;
+  left: 16px;
+  right: 16px;
+  bottom: 16px;
+  z-index: 999;
+  max-width: 640px;
+  margin: 0 auto;
+  background: var(--color-card);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-soft);
+  padding: 18px 20px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px;
+  align-items: center;
+  justify-content: space-between;
+}
+.cookie-banner p {
+  margin: 0;
+  flex: 1 1 260px;
+  font-size: 0.85rem;
+  color: var(--color-ink-soft);
+}
+.cookie-banner a { color: var(--color-primary-dark); font-weight: 600; }
+.cookie-banner-actions { display: flex; gap: 8px; flex-shrink: 0; }
+.btn-cookie-accept,
+.btn-cookie-reject {
+  border-radius: 999px;
+  padding: 9px 18px;
+  font-weight: 700;
+  font-size: 0.85rem;
+  cursor: pointer;
+  font-family: inherit;
+}
+.btn-cookie-accept { background: var(--color-primary); color: #fff; border: 1px solid var(--color-primary); }
+.btn-cookie-accept:hover { background: var(--color-primary-dark); }
+.btn-cookie-reject { background: transparent; border: 1px solid var(--color-border); color: var(--color-ink); }
+.btn-cookie-reject:hover { background: var(--color-bg); }
 .footer-contact { display: inline-flex; align-items: center; gap: 6px; }
 .footer-contact svg { width: 15px; height: 15px; flex-shrink: 0; color: var(--color-ink-soft); }
 

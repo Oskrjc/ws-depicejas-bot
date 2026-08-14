@@ -79,7 +79,7 @@ const DEPOSIT_PERCENTAGE = 0.2;
 // ── Reservas desde el formulario de la landing page ────────────────────────
 app.post("/api/reservations", async (c) => {
   const body = await c.req.json().catch(() => ({}));
-  const { name, email, phone, services, preferredDate, preferredTime, notes, paymentOption } = body || {};
+  const { name, email, phone, services, preferredDate, preferredTime, notes, paymentOption, consent } = body || {};
 
   const errors: string[] = [];
   if (!name || typeof name !== "string") errors.push("name");
@@ -90,6 +90,10 @@ app.post("/api/reservations", async (c) => {
   if (!preferredDate || typeof preferredDate !== "string") errors.push("preferredDate");
   if (!preferredTime || typeof preferredTime !== "string") errors.push("preferredTime");
   if (paymentOption !== "deposit" && paymentOption !== "full") errors.push("paymentOption");
+  if (typeof notes === "string" && notes.length > 500) errors.push("notes");
+  // Consentimiento explícito de la Política de Privacidad — obligatorio
+  // para poder tratar los datos de la reserva (ver web/politica-privacidad.html).
+  if (consent !== true) errors.push("consent");
 
   if (errors.length > 0) {
     return c.json({ error: `Datos inválidos o faltantes: ${errors.join(", ")}` }, 400);
@@ -132,6 +136,7 @@ app.post("/api/reservations", async (c) => {
       price: priceToCharge,
       fullPrice,
       paymentOption,
+      consentAcceptedAt: new Date().toISOString(),
     });
 
     // Reserva el horario de forma atómica: si ya no está disponible (otra

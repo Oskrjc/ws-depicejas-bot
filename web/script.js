@@ -145,13 +145,23 @@ if (reservationForm) {
       return;
     }
 
+    const consentCheckbox = document.getElementById("res-consent");
+    if (!consentCheckbox.checked) {
+      messageEl.textContent = "Debes aceptar la Política de Privacidad para reservar.";
+      messageEl.className = "form-message error";
+      consentCheckbox.closest(".form-row-consent").scrollIntoView({ behavior: "smooth", block: "center" });
+      return;
+    }
+
     submitBtn.disabled = true;
     submitBtn.textContent = "Enviando...";
 
     const formData = new FormData(reservationForm);
     formData.delete("services");
+    formData.delete("consent");
     const payload = Object.fromEntries(formData.entries());
     payload.services = selectedServices;
+    payload.consent = true;
 
     try {
       const response = await fetch("/api/reservations", {
