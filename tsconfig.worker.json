@@ -19,6 +19,7 @@
     "src/slotsDb.ts",
     "src/mercadopago.ts",
     "src/mailer.ts",
-    "src/businessConfig.ts"
+    "src/businessConfig.ts",
+    "src/security.ts"
   ]
 }

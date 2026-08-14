@@ -23,10 +23,25 @@ import {
   bookSlot,
   freeSlotByReservationId,
 } from "./slotsDb";
+import {
+  getClientIp,
+  checkRateLimit,
+  isAdminLockedOut,
+  logAdminLoginFailure,
+  logAdminLoginSuccess,
+  securityHeaders,
+  bodySizeLimit,
+  requireCsrfHeader,
+} from "./security";
 
 type AppEnv = { Bindings: Env };
 
 const app = new Hono<AppEnv>();
+
+// Se aplican a TODAS las rutas, incluyendo los archivos estáticos servidos
+// al final vía ASSETS — por eso van primero, antes de cualquier ruta.
+app.use("*", securityHeaders);
+app.use("*", bodySizeLimit);
 
 // ── Autenticación básica para el panel de administrador (/admin) ──────────
 // Equivalente a requireAdminAuth en el server.ts de Express — mismo
@@ -56,10 +71,24 @@ app.use("/admin/*", async (c, next) => {
   if (!config.adminPassword) {
     return c.text("El panel de administrador no está configurado (falta ADMIN_PASSWORD).", 503);
   }
+
+  const ip = getClientIp(c);
+
+  // Bloqueo por intentos: 10 fallidos en 10 minutos desde la misma IP
+  // bloquean el acceso, aunque la clave que manden después sea correcta —
+  // frena scripts de fuerza bruta sin afectar a alguien que se equivoca
+  // un par de veces tipeando.
+  if (await isAdminLockedOut(c.env.DB, ip)) {
+    return c.text("Demasiados intentos fallidos. Intenta de nuevo en unos minutos.", 429);
+  }
+
   if (!checkBasicAuth(c.req.header("Authorization"), config.adminUsername, config.adminPassword)) {
+    await logAdminLoginFailure(c.env.DB, ip);
     c.header("WWW-Authenticate", 'Basic realm="Depicejas Admin"');
     return c.text("Autenticación requerida.", 401);
   }
+
+  await logAdminLoginSuccess(c.env.DB, ip);
   await next();
 });
 
@@ -78,13 +107,35 @@ const DEPOSIT_PERCENTAGE = 0.2;
 
 // ── Reservas desde el formulario de la landing page ────────────────────────
 app.post("/api/reservations", async (c) => {
+  // Máximo 5 intentos cada 2 minutos por IP — evita que un script cree
+  // reservas/preferencias de pago en cadena (spam, bloqueo de horarios,
+  // consumo de cuota de D1/MercadoPago).
+  const ip = getClientIp(c);
+  const withinLimit = await checkRateLimit(c.env.DB, ip, "reservation_attempt", 5, 120);
+  if (!withinLimit) {
+    return c.json({ error: "Demasiadas solicitudes. Espera un momento y vuelve a intentar." }, 429);
+  }
+
   const body = await c.req.json().catch(() => ({}));
   const { name, email, phone, services, preferredDate, preferredTime, notes, paymentOption, consent } = body || {};
 
   const errors: string[] = [];
-  if (!name || typeof name !== "string") errors.push("name");
-  if (!email || typeof email !== "string" || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) errors.push("email");
-  if (!Array.isArray(services) || services.length === 0 || !services.every((s: unknown) => typeof s === "string")) {
+  if (!name || typeof name !== "string" || name.length > 100) errors.push("name");
+  if (
+    !email ||
+    typeof email !== "string" ||
+    email.length > 254 ||
+    !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)
+  ) {
+    errors.push("email");
+  }
+  if (typeof phone === "string" && phone.length > 30) errors.push("phone");
+  if (
+    !Array.isArray(services) ||
+    services.length === 0 ||
+    services.length > 20 ||
+    !services.every((s: unknown) => typeof s === "string")
+  ) {
     errors.push("services");
   }
   if (!preferredDate || typeof preferredDate !== "string") errors.push("preferredDate");
@@ -189,6 +240,23 @@ async function handlePaymentWebhook(c: Context<AppEnv>) {
       return c.text("ok", 200);
     }
 
+    // Antes de confirmar un pago "approved", verificamos que el monto y la
+    // moneda que dice MercadoPago coincidan con lo que le cobramos a esta
+    // reserva — si no coinciden, no confirmamos automáticamente (podría ser
+    // un pago manipulado o de otra reserva) y queda para revisión manual.
+    if (payment.status === "approved") {
+      const amountMatches = reservation.price != null && payment.transactionAmount === reservation.price;
+      const currencyMatches = payment.currencyId === "CLP";
+      if (!amountMatches || !currencyMatches) {
+        console.error(
+          `Webhook de MercadoPago: monto/moneda no coinciden para la reserva ${reservation.id} — ` +
+            `esperado ${reservation.price} CLP, recibido ${payment.transactionAmount} ${payment.currencyId}. ` +
+            `No se confirma automáticamente, revisar a mano.`
+        );
+        return c.text("ok", 200);
+      }
+    }
+
     const wasAlreadyApproved = reservation.paymentStatus === "approved";
     const updated = await setReservationPaymentStatus(c.env.DB, reservation.id, payment.status, payment.paymentId);
 
@@ -217,7 +285,7 @@ app.get("/admin/api/reservations", async (c) => {
   return c.json(reservations);
 });
 
-app.patch("/admin/api/reservations/:id/contacted", async (c) => {
+app.patch("/admin/api/reservations/:id/contacted", requireCsrfHeader, async (c) => {
   const id = Number(c.req.param("id"));
   const body = await c.req.json().catch(() => ({}) as any);
   const contacted = Boolean(body?.contacted);
@@ -232,7 +300,7 @@ app.patch("/admin/api/reservations/:id/contacted", async (c) => {
 // Reenvía el correo de confirmación de pago (útil si el correo tenía un
 // error de tipeo, cayó en spam, o Resend falló temporalmente). Solo tiene
 // sentido para reservas con el pago ya aprobado.
-app.post("/admin/api/reservations/:id/resend-email", async (c) => {
+app.post("/admin/api/reservations/:id/resend-email", requireCsrfHeader, async (c) => {
   const id = Number(c.req.param("id"));
   const reservation = await getReservationById(c.env.DB, id);
 
@@ -253,7 +321,7 @@ app.post("/admin/api/reservations/:id/resend-email", async (c) => {
   }
 });
 
-app.delete("/admin/api/reservations/:id", async (c) => {
+app.delete("/admin/api/reservations/:id", requireCsrfHeader, async (c) => {
   const id = Number(c.req.param("id"));
   // Libera el horario ligado a esta reserva antes de borrarla, para que
   // vuelva a aparecer como disponible en vez de quedar bloqueado sin dueño.
@@ -274,7 +342,7 @@ app.get("/admin/api/slots", async (c) => {
   return c.json(slots);
 });
 
-app.post("/admin/api/slots", async (c) => {
+app.post("/admin/api/slots", requireCsrfHeader, async (c) => {
   const body = await c.req.json().catch(() => ({}) as any);
   const { date, time, times } = body || {};
 
@@ -301,7 +369,7 @@ app.post("/admin/api/slots", async (c) => {
   return c.json(slots, 201);
 });
 
-app.delete("/admin/api/slots/:id", async (c) => {
+app.delete("/admin/api/slots/:id", requireCsrfHeader, async (c) => {
   const id = Number(c.req.param("id"));
   const deleted = await deleteAvailableSlot(c.env.DB, id);
   if (!deleted) {

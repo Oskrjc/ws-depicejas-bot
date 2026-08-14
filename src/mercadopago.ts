@@ -99,6 +99,9 @@ export interface MpPaymentInfo {
   paymentId: string;
   status: string; // "approved" | "pending" | "in_process" | "rejected" | "refunded" | ...
   externalReference: string | null;
+  /** Monto que MercadoPago dice haber cobrado — se valida contra el precio guardado en la reserva antes de confirmarla (ver app.ts). */
+  transactionAmount: number | null;
+  currencyId: string | null;
 }
 
 /** Consulta el estado de un pago por su ID (usado desde el webhook). */
@@ -119,11 +122,15 @@ export async function getPayment(config: AppConfig, paymentId: string): Promise<
     id?: string | number;
     status?: string;
     external_reference?: string | null;
+    transaction_amount?: number | null;
+    currency_id?: string | null;
   };
 
   return {
     paymentId: String(result.id),
     status: result.status || "unknown",
     externalReference: result.external_reference ?? null,
+    transactionAmount: result.transaction_amount ?? null,
+    currencyId: result.currency_id ?? null,
   };
 }

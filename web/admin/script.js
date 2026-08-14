@@ -1,6 +1,10 @@
 const statusEl = document.getElementById("status");
 const bodyEl = document.getElementById("reservationsBody");
 
+// Header exigido por el servidor en toda ruta de /admin/api/* que modifica
+// datos (POST/PATCH/DELETE) — protección CSRF, ver src/security.ts.
+const CSRF_HEADERS = { "X-Depicejas-Admin": "1" };
+
 function formatDate(iso) {
   const d = new Date(iso.replace(" ", "T") + "Z");
   return isNaN(d.getTime()) ? iso : d.toLocaleString();
@@ -95,7 +99,7 @@ async function loadReservations() {
         const id = e.target.getAttribute("data-id");
         await fetch(`/admin/api/reservations/${id}/contacted`, {
           method: "PATCH",
-          headers: { "Content-Type": "application/json" },
+          headers: { "Content-Type": "application/json", ...CSRF_HEADERS },
           body: JSON.stringify({ contacted: e.target.checked }),
         });
         e.target.closest("tr").classList.toggle("contacted", e.target.checked);
@@ -109,7 +113,10 @@ async function loadReservations() {
         const originalText = e.target.textContent;
         e.target.textContent = "…";
         try {
-          const res = await fetch(`/admin/api/reservations/${id}/resend-email`, { method: "POST" });
+          const res = await fetch(`/admin/api/reservations/${id}/resend-email`, {
+            method: "POST",
+            headers: CSRF_HEADERS,
+          });
           const data = await res.json().catch(() => ({}));
           if (res.ok) {
             alert("Correo reenviado.");
@@ -127,7 +134,7 @@ async function loadReservations() {
       btn.addEventListener("click", async (e) => {
         const id = e.target.getAttribute("data-id");
         if (!confirm("¿Eliminar esta reserva? No se puede deshacer.")) return;
-        await fetch(`/admin/api/reservations/${id}`, { method: "DELETE" });
+        await fetch(`/admin/api/reservations/${id}`, { method: "DELETE", headers: CSRF_HEADERS });
         e.target.closest("tr").remove();
       });
     });
@@ -231,7 +238,7 @@ async function loadSlots() {
       btn.addEventListener("click", async (e) => {
         const id = e.target.getAttribute("data-id");
         if (!confirm("¿Eliminar este horario disponible?")) return;
-        const res = await fetch(`/admin/api/slots/${id}`, { method: "DELETE" });
+        const res = await fetch(`/admin/api/slots/${id}`, { method: "DELETE", headers: CSRF_HEADERS });
         if (res.ok) {
           const tr = e.target.closest("tr");
           const details = e.target.closest("details");
@@ -264,7 +271,7 @@ document.getElementById("addSlotForm").addEventListener("submit", async (e) => {
 
   const res = await fetch("/admin/api/slots", {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: { "Content-Type": "application/json", ...CSRF_HEADERS },
     body: JSON.stringify({ date, times }),
   });
 
