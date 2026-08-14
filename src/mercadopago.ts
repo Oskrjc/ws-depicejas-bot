@@ -21,8 +21,7 @@ const MP_API = "https://api.mercadopago.com";
 export async function createPaymentPreference(
   config: AppConfig,
   reservation: Reservation,
-  priceClp: number,
-  payerRut: string
+  priceClp: number
 ): Promise<{ preferenceId: string; checkoutUrl: string }> {
   // MercadoPago rechaza "auto_return" cuando back_urls apunta a localhost
   // (no puede validar una URL que no es pública) — por eso solo lo pedimos
@@ -42,10 +41,9 @@ export async function createPaymentPreference(
     payer: {
       name: reservation.name,
       email: reservation.email,
-      // Obligatorio para que MercadoPago procese pagos con tarjeta en
-      // Chile — sin esto, el botón "Pagar" de su checkout queda
-      // deshabilitado sin mostrar ningún error.
-      identification: { type: "RUT", number: payerRut },
+      // Sin "identification" aquí, el RUT lo pide MercadoPago en su propio
+      // checkout al momento de ingresar la tarjeta (ya no lo pedimos en el
+      // formulario de la web).
     },
     back_urls: {
       success: `${config.baseUrl}/reserva-exitosa.html`,

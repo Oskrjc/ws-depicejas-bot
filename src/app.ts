@@ -79,12 +79,11 @@ const DEPOSIT_PERCENTAGE = 0.2;
 // ── Reservas desde el formulario de la landing page ────────────────────────
 app.post("/api/reservations", async (c) => {
   const body = await c.req.json().catch(() => ({}));
-  const { name, email, rut, phone, services, preferredDate, preferredTime, notes, paymentOption } = body || {};
+  const { name, email, phone, services, preferredDate, preferredTime, notes, paymentOption } = body || {};
 
   const errors: string[] = [];
   if (!name || typeof name !== "string") errors.push("name");
   if (!email || typeof email !== "string" || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) errors.push("email");
-  if (!rut || typeof rut !== "string" || rut.trim().length < 3) errors.push("rut");
   if (!Array.isArray(services) || services.length === 0 || !services.every((s: unknown) => typeof s === "string")) {
     errors.push("services");
   }
@@ -144,7 +143,7 @@ app.post("/api/reservations", async (c) => {
       return c.json({ error: "Ese horario ya no está disponible. Por favor elige otro." }, 409);
     }
 
-    const { preferenceId, checkoutUrl } = await createPaymentPreference(config, reservation, priceToCharge, rut.trim());
+    const { preferenceId, checkoutUrl } = await createPaymentPreference(config, reservation, priceToCharge);
     await setReservationPreferenceId(c.env.DB, reservation.id, preferenceId);
 
     return c.json({ ok: true, checkoutUrl }, 201);
