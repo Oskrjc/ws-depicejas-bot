@@ -489,6 +489,12 @@ a.service-name:hover { color: var(--color-primary-dark); text-decoration: underl
 }
 .form-message.success { color: #2f7a4d; }
 .form-message.error { color: #b3261e; }
+.form-trust-note {
+  margin: 10px 0 0;
+  font-size: 0.85rem;
+  color: var(--color-ink-soft);
+  text-align: center;
+}
 
 @media (max-width: 560px) {
   .form-row-split { grid-template-columns: 1fr; }

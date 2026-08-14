@@ -218,12 +218,14 @@ if (reservationForm) {
         throw new Error("No se pudo generar el link de pago. Intenta de nuevo o escríbenos por WhatsApp.");
       }
 
-      trackEvent("reservation_submit", { value: getSelectedTotal(), currency: "CLP" });
+      // customer_type (new/returning) — lo calcula el backend según el correo,
+      // para poder medir recompra en GA4 (Fase 5 de la auditoría).
+      trackEvent("reservation_submit", { value: getSelectedTotal(), currency: "CLP", customer_type: data.customerType });
 
       messageEl.textContent = "¡Listo! Te estamos llevando a MercadoPago para completar el pago…";
       messageEl.className = "form-message success";
       submitBtn.textContent = "Redirigiendo…";
-      trackEvent("payment_start", { value: getSelectedTotal(), currency: "CLP" });
+      trackEvent("payment_start", { value: getSelectedTotal(), currency: "CLP", customer_type: data.customerType });
       window.location.href = data.checkoutUrl;
       return; // no reactivar el botón — la página va a navegar fuera de aquí
     } catch (err) {

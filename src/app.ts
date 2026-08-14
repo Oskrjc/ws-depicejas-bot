@@ -12,6 +12,7 @@ import {
   setReservationPaymentStatus,
   getReservationByExternalReference,
   getReservationById,
+  countReservationsByEmail,
 } from "./reservationsDb";
 import { sendPaymentConfirmedEmails } from "./mailer";
 import { createPaymentPreference, getPayment } from "./mercadopago";
@@ -174,6 +175,13 @@ app.post("/api/reservations", async (c) => {
   const priceToCharge = paymentOption === "deposit" ? Math.round(fullPrice * DEPOSIT_PERCENTAGE) : fullPrice;
   const serviceLabel = confirmedServices.map((s) => s.name).join(", ");
 
+  // Cuántas reservas previas tiene este correo, ANTES de crear la reserva
+  // actual — así sabemos si es clienta nueva o recurrente (Fase 5 de la
+  // auditoría: medir recompra). Se lo mandamos al frontend para que lo
+  // agregue como parámetro del evento de analítica.
+  const priorReservationsCount = await countReservationsByEmail(c.env.DB, email);
+  const customerType = priorReservationsCount > 0 ? "returning" : "new";
+
   let reservation;
   try {
     reservation = await saveReservation(c.env.DB, {
@@ -202,7 +210,7 @@ app.post("/api/reservations", async (c) => {
     const { preferenceId, checkoutUrl } = await createPaymentPreference(config, reservation, priceToCharge);
     await setReservationPreferenceId(c.env.DB, reservation.id, preferenceId);
 
-    return c.json({ ok: true, checkoutUrl }, 201);
+    return c.json({ ok: true, checkoutUrl, customerType }, 201);
   } catch (err) {
     console.error("Error procesando reserva:", err);
     // Si la reserva alcanzó a crearse pero algo falló después (ej. MercadoPago),

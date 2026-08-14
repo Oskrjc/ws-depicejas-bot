@@ -117,6 +117,19 @@ export async function listReservations(db: D1Database): Promise<Reservation[]> {
   return (results ?? []).map(toReservation);
 }
 
+/**
+ * Cuenta cuántas reservas previas existen con este correo (usado para medir
+ * recompra — Fase 5 de la auditoría: saber si quien reserva es clienta
+ * nueva o ya había reservado antes).
+ */
+export async function countReservationsByEmail(db: D1Database, email: string): Promise<number> {
+  const row = await db
+    .prepare(`SELECT COUNT(*) as count FROM reservations WHERE email = ?`)
+    .bind(email)
+    .first<{ count: number }>();
+  return row?.count ?? 0;
+}
+
 export async function setReservationContacted(
   db: D1Database,
   id: number,
