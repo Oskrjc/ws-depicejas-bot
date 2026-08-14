@@ -273,7 +273,12 @@ a { color: inherit; }
   box-shadow: var(--shadow-soft);
 }
 .service-name { font-weight: 600; }
+a.service-name { color: var(--color-ink); text-decoration: none; }
+a.service-name:hover { color: var(--color-primary-dark); text-decoration: underline; }
 .service-price { font-weight: 700; color: var(--color-primary-dark); white-space: nowrap; }
+.service-more-link { margin: 10px 0 0; font-size: 0.9rem; }
+.service-more-link a { color: var(--color-primary-dark); font-weight: 600; text-decoration: none; }
+.service-more-link a:hover { text-decoration: underline; }
 
 /* Galería / carrusel */
 .carousel {
