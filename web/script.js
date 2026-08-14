@@ -1,5 +1,40 @@
 document.getElementById("year").textContent = new Date().getFullYear();
 
+// ── Funnel de analítica (Fase 3 de la auditoría) ────────────────────────
+// Empuja eventos a dataLayer para que Google Tag Manager los procese como
+// eventos de GA4 (view_service, click_whatsapp, reservation_start,
+// reservation_submit, payment_start, payment_success/failed/pending).
+// Esto funciona aunque GTM todavía no se haya cargado (antes de aceptar
+// cookies, ver consent.js): dataLayer es solo un arreglo en memoria, y GTM
+// procesa todo lo acumulado apenas se inyecta — así no se pierde ningún
+// evento, pero ningún dato sale del navegador hasta que hay consentimiento.
+window.dataLayer = window.dataLayer || [];
+function trackEvent(name, params) {
+  window.dataLayer.push(Object.assign({ event: name }, params || {}));
+}
+
+// click_whatsapp — cualquier link a WhatsApp, en cualquier página.
+document.querySelectorAll('a[href*="wa.me"]').forEach((link) => {
+  link.addEventListener("click", () => trackEvent("click_whatsapp", { link_location: location.pathname }));
+});
+
+// view_service — la sección de servicios entra en pantalla (solo existe en index.html).
+const serviciosSection = document.getElementById("servicios");
+if (serviciosSection && "IntersectionObserver" in window) {
+  const serviciosObserver = new IntersectionObserver((entries) => {
+    if (entries[0].isIntersecting) {
+      trackEvent("view_service");
+      serviciosObserver.disconnect();
+    }
+  }, { threshold: 0.3 });
+  serviciosObserver.observe(serviciosSection);
+}
+
+// payment_success / payment_failed / payment_pending — páginas de resultado de pago.
+if (document.body.dataset.paymentResult) {
+  trackEvent(document.body.dataset.paymentResult);
+}
+
 const navToggle = document.getElementById("navToggle");
 const siteNav = document.querySelector(".nav");
 if (navToggle && siteNav) {
@@ -122,6 +157,9 @@ if (reservationForm) {
   servicesPicker.addEventListener("change", updateTotals);
   updateTotals();
 
+  // reservation_start — primera interacción real con el formulario de reserva.
+  reservationForm.addEventListener("focusin", () => trackEvent("reservation_start"), { once: true });
+
   reservationForm.addEventListener("submit", async (event) => {
     event.preventDefault();
     messageEl.textContent = "";
@@ -180,9 +218,12 @@ if (reservationForm) {
         throw new Error("No se pudo generar el link de pago. Intenta de nuevo o escríbenos por WhatsApp.");
       }
 
+      trackEvent("reservation_submit", { value: getSelectedTotal(), currency: "CLP" });
+
       messageEl.textContent = "¡Listo! Te estamos llevando a MercadoPago para completar el pago…";
       messageEl.className = "form-message success";
       submitBtn.textContent = "Redirigiendo…";
+      trackEvent("payment_start", { value: getSelectedTotal(), currency: "CLP" });
       window.location.href = data.checkoutUrl;
       return; // no reactivar el botón — la página va a navegar fuera de aquí
     } catch (err) {
