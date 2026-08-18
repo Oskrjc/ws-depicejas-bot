@@ -1021,11 +1021,12 @@ web/                    # TODO el sitio (estático + admin), servido por [assets
 
 # ANEXO D — Pendientes / mejoras posibles
 
-- **Apagar Railway del todo:** desde el corte de dominio (FASE 11.10), ya
-  no le llega tráfico real, pero el servicio sigue corriendo (y
-  potencialmente cobrando) hasta cancelarlo/eliminarlo manualmente en el
-  dashboard de Railway. Hacerlo solo después de confirmar unos días de
-  estabilidad en Cloudflare.
+- ~~**Apagar Railway del todo**~~ — ✅ **Hecho** (18 de agosto de 2026).
+  Después de confirmar varios días de estabilidad en Cloudflare, se
+  eliminó el proyecto completo desde el dashboard de Railway (Settings →
+  Danger Zone → Delete Project). El DNS ya había dejado de apuntar ahí
+  desde el corte de dominio (FASE 11.10), así que el borrado no tuvo
+  ningún impacto en el sitio en vivo.
 - **Bot de WhatsApp:** el código está listo (`whatsapp.ts`, `claude.ts`,
   `calendar.ts`, `conversationStore.ts`, `reminders.ts`) pero **no se
   despliega** en Cloudflare — quedó fuera de la migración a propósito (ver
@@ -1038,17 +1039,20 @@ web/                    # TODO el sitio (estático + admin), servido por [assets
 - **Actualizar `wrangler`:** el proyecto quedó en la v3 (hay v4 disponible).
   Funciona bien tal como está; actualizar eventualmente pero no es
   urgente.
-- **Secretos como "Secret" cifrado real:** algunos valores (ej.
-  `ADMIN_PASSWORD`) se guardaron como variable de texto plano en el
-  dashboard en algún momento de la migración — conviene revisar en
-  Configuración → Variables y secretos que los sensibles (`ADMIN_PASSWORD`,
-  `MERCADOPAGO_ACCESS_TOKEN`, `RESEND_API_KEY`) estén marcados como
-  **Secreto** (cifrados), no como texto plano.
-- **Google Search Console:** agregar la propiedad `depicejas.cl` y enviar
-  `https://depicejas.cl/sitemap.xml` para que Google indexe el sitio en
-  días en vez de semanas.
+- ~~**Secretos como "Secret" cifrado real**~~ — ✅ **Resuelto.** Verificado
+  con `wrangler secret list`: `ADMIN_PASSWORD`, `ADMIN_USERNAME`,
+  `BASE_URL`, `MAIL_FROM`, `MERCADOPAGO_ACCESS_TOKEN`,
+  `OWNER_NOTIFICATION_EMAIL` y `RESEND_API_KEY` están todos guardados como
+  `secret_text` (cifrados), ninguno como variable de texto plano.
+- ~~**Google Search Console**~~ — ✅ **Hecho** (Fase 4 de la auditoría,
+  agosto 2026). Propiedad `depicejas.cl` verificada por registro DNS,
+  `sitemap.xml` enviado y correcto, e indexación solicitada a mano para la
+  home y las 4 páginas comerciales nuevas.
 - **Historial de conversación del bot:** vive en memoria, se pierde al
   reiniciar — ver punto del bot de WhatsApp arriba (migrar a KV).
-- **Analítica:** no hay ninguna medición de visitas. Cloudflare Web
-  Analytics viene gratis y no requiere cambios en el código (se activa
-  desde el dashboard).
+- **Analítica:** el sitio ya empuja 8 eventos de funnel a `dataLayer`
+  (`view_service`, `click_whatsapp`, `reservation_start`,
+  `reservation_submit`, `payment_start`, `payment_success`,
+  `payment_failed`, `payment_pending` — ver `web/script.js`), pero falta
+  cablearlos en GTM/GA4 (triggers, tags, marcar conversiones) y armar el
+  reporte de funnel — trabajo manual en el dashboard de Google, pendiente.
