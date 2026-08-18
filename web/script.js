@@ -1,5 +1,40 @@
 document.getElementById("year").textContent = new Date().getFullYear();
 
+// ── Aviso emergente (ej. "estamos de vacaciones") ───────────────────────
+// Para desactivarlo, deja NOTICE_ENABLED en false. Para cambiar el
+// mensaje (ej. agregar una fecha de vuelta), edita NOTICE_TITLE y
+// NOTICE_MESSAGE. Se muestra una vez por sesión de navegador (vuelve a
+// aparecer si cierran el navegador o abren en una pestaña nueva más
+// tarde) — no bloquea el formulario de reservas, es solo informativo.
+const NOTICE_ENABLED = true;
+const NOTICE_TITLE = "🌴 ¡Estamos de vacaciones!";
+const NOTICE_MESSAGE =
+  "Pronto volvemos. Igual puedes reservar tu hora online sin problema — apenas estemos de vuelta, Joselyn confirma tu cita. Para algo urgente, escríbenos por WhatsApp.";
+const NOTICE_STORAGE_KEY = "depicejas_notice_seen";
+
+if (NOTICE_ENABLED && !sessionStorage.getItem(NOTICE_STORAGE_KEY)) {
+  const overlay = document.createElement("div");
+  overlay.className = "notice-overlay";
+  overlay.innerHTML = `
+    <div class="notice-modal" role="dialog" aria-modal="true" aria-labelledby="noticeTitle">
+      <button type="button" class="notice-modal-close" id="noticeClose" aria-label="Cerrar">&times;</button>
+      <p class="notice-modal-icon" aria-hidden="true">${NOTICE_TITLE.split(" ")[0]}</p>
+      <h3 id="noticeTitle">${NOTICE_TITLE.replace(/^\S+\s/, "")}</h3>
+      <p>${NOTICE_MESSAGE}</p>
+      <button type="button" class="btn btn-primary" id="noticeDismiss">Entendido</button>
+    </div>
+  `;
+  document.body.appendChild(overlay);
+  sessionStorage.setItem(NOTICE_STORAGE_KEY, "1");
+
+  const closeNotice = () => overlay.remove();
+  document.getElementById("noticeClose").addEventListener("click", closeNotice);
+  document.getElementById("noticeDismiss").addEventListener("click", closeNotice);
+  overlay.addEventListener("click", (e) => {
+    if (e.target === overlay) closeNotice();
+  });
+}
+
 // ── Funnel de analítica (Fase 3 de la auditoría) ────────────────────────
 // Empuja eventos a dataLayer para que Google Tag Manager los procese como
 // eventos de GA4 (view_service, click_whatsapp, reservation_start,

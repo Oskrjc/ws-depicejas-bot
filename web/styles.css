@@ -723,6 +723,48 @@ a.service-name:hover { color: var(--color-primary-dark); text-decoration: underl
 .btn-cookie-accept:hover { background: var(--color-primary-dark); }
 .btn-cookie-reject { background: transparent; border: 1px solid var(--color-border); color: var(--color-ink); }
 .btn-cookie-reject:hover { background: var(--color-bg); }
+
+/* Aviso emergente (ej. "estamos de vacaciones") — se muestra una vez por
+   sesión de navegador, se controla desde web/script.js. */
+.notice-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  background: rgba(58, 34, 30, 0.55);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+}
+.notice-modal {
+  position: relative;
+  max-width: 420px;
+  width: 100%;
+  background: var(--color-card);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-soft);
+  padding: 32px 28px 28px;
+  text-align: center;
+}
+.notice-modal-close {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  width: 32px;
+  height: 32px;
+  border: none;
+  background: transparent;
+  color: var(--color-ink-soft);
+  font-size: 1.3rem;
+  line-height: 1;
+  cursor: pointer;
+  border-radius: 999px;
+}
+.notice-modal-close:hover { background: var(--color-bg); color: var(--color-ink); }
+.notice-modal-icon { font-size: 2.2rem; margin-bottom: 10px; }
+.notice-modal h3 { margin: 0 0 10px; font-size: 1.25rem; color: var(--color-primary-dark); }
+.notice-modal p { margin: 0 0 22px; font-size: 0.95rem; color: var(--color-ink-soft); }
+.notice-modal .btn { width: 100%; }
 .footer-contact { display: inline-flex; align-items: center; gap: 6px; }
 .footer-contact svg { width: 15px; height: 15px; flex-shrink: 0; color: var(--color-ink-soft); }
 
